@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Panel - Top-Margin Trading</title>
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/dashboard.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    :root {
+      --admin-primary: #6366f1;
+      --admin-secondary: #8b5cf6;
+      --admin-success: #10b981;
+      --admin-warning: #f59e0b;
+      --admin-danger: #ef4444;
+      --admin-surface: rgba(255, 255, 255, 0.05);
+      --admin-border: rgba(255, 255, 255, 0.1);
+      --admin-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .admin-container {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    .admin-header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .admin-header h1 {
+      margin: 0;
+      background: linear-gradient(135deg, var(--admin-primary), var(--admin-secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-size: 3rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+
+    .admin-header p {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 1.1rem;
+    }
+
+    .admin-nav-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 2rem;
+      max-width: 1200px;
+      width: 100%;
+    }
+
+    .nav-card {
+      background: var(--admin-surface);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--admin-border);
+      padding: 2rem;
+      border-radius: 16px;
+      text-align: center;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .nav-card:hover {
+      transform: translateY(-5px);
+      box-shadow: var(--admin-shadow);
+      border-color: var(--admin-primary);
+    }
+
+    .nav-card i {
+      font-size: 3rem;
+      color: var(--admin-primary);
+      margin-bottom: 0.5rem;
+    }
+
+    .nav-card h3 {
+      margin: 0;
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+
+    .nav-card p {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 0.9rem;
+    }
+
+    .logout-card {
+      background: linear-gradient(135deg, var(--admin-danger), #dc2626);
+      border-color: var(--admin-danger);
+    }
+
+    .logout-card:hover {
+      background: linear-gradient(135deg, #dc2626, var(--admin-danger));
+      border-color: #dc2626;
+    }
+
+    .logout-card i {
+      color: white;
+    }
+
+    @media (max-width: 768px) {
+      .admin-nav-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+
+      .admin-header h1 {
+        font-size: 2rem;
+      }
+
+      .nav-card {
+        padding: 1.5rem;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="admin-container">
+    <div class="admin-header">
+      <h1><i class="fas fa-cog"></i> Admin Panel</h1>
+      <p>Manage your trading platform efficiently</p>
+    </div>
+
+    <div class="admin-nav-grid">
+      <a href="admin-dashboard.html" class="nav-card">
+        <i class="fas fa-tachometer-alt"></i>
+        <h3>Dashboard</h3>
+        <p>View system statistics and recent activity</p>
+      </a>
+
+      <a href="admin-users.html" class="nav-card">
+        <i class="fas fa-users"></i>
+        <h3>User Management</h3>
+        <p>Manage user accounts and permissions</p>
+      </a>
+
+      <a href="admin-transactions.html" class="nav-card">
+        <i class="fas fa-exchange-alt"></i>
+        <h3>Transactions</h3>
+        <p>Monitor deposits and withdrawals</p>
+      </a>
+
+      <a href="admin-withdrawals.html" class="nav-card">
+        <i class="fas fa-money-check-alt"></i>
+        <h3>Withdrawals</h3>
+        <p>Review and process withdrawal requests</p>
+      </a>
+
+      <a href="admin-trades.html" class="nav-card">
+        <i class="fas fa-chart-line"></i>
+        <h3>Trades</h3>
+        <p>Monitor trading activities and performance</p>
+      </a>
+
+      <a href="admin-broadcast.html" class="nav-card">
+        <i class="fas fa-bullhorn"></i>
+        <h3>Broadcast</h3>
+        <p>Send messages to users</p>
+      </a>
+
+      <a href="admin-logs.html" class="nav-card">
+        <i class="fas fa-history"></i>
+        <h3>Activity Logs</h3>
+        <p>View system activity and audit logs</p>
+      </a>
+
+      <a href="login.html" class="nav-card logout-card" onclick="logoutAdmin()">
+        <i class="fas fa-sign-out-alt"></i>
+        <h3>Logout</h3>
+        <p>Sign out of admin panel</p>
+      </a>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script type="module" src="js/firebase-config.js"></script>
+  <script src="js/supabase-shim.js"></script>
+  <script src="js/auth.js"></script>
+
+  <script>
+    // Logout admin function
+    async function logoutAdmin() {
+      try {
+        const sup = window.supabase;
+        if (sup && sup.auth && sup.auth.signOut) {
+          const { error } = await sup.auth.signOut();
+          if (error) throw error;
+        }
+        window.location.href = 'login.html';
+      } catch (error) {
+        console.error('Logout error:', error);
+        alert('Error logging out');
+      }
+    }
+  </script>
+</body>
+
+</html>

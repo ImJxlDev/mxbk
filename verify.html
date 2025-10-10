@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Verification - Top-Margin Trading</title>
+    <meta name="description" content="Verify your email address">
+
+    <link rel="icon" type="image/svg+xml" href="img/logo.svg">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body class="auth-body">
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <div class="auth-logo">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Top-Margin </span>
+                </div>
+                <h1>Verify Your Email</h1>
+                <p>We've sent a verification link to your email address</p>
+            </div>
+
+            <div class="verification-content">
+                <div class="verification-icon">
+                    <i class="fas fa-envelope-open"></i>
+                </div>
+
+                <div class="verification-info">
+                    <p>Please check your email inbox and click the verification link to activate your account.</p>
+                    <p class="email-address" id="user-email">your-email@example.com</p>
+                </div>
+
+                <div class="verification-actions">
+                    <button class="btn btn-primary btn-large" id="resend-btn">
+                        <i class="fas fa-paper-plane"></i>
+                        Resend Verification Email
+                    </button>
+
+                    <div class="verification-links">
+                        <a href="login.html">Back to Login</a>
+                        <span>•</span>
+                        <a href="signup.html">Use Different Email</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="auth-visual">
+            <div class="visual-content">
+                <h2>Almost There!</h2>
+                <p>Email verification helps keep your account secure and ensures you receive important updates</p>
+                <div class="visual-features">
+                    <div class="visual-feature">
+                        <i class="fas fa-shield-alt"></i>
+                        <span>Enhanced Security</span>
+                    </div>
+                    <div class="visual-feature">
+                        <i class="fas fa-bell"></i>
+                        <span>Important Notifications</span>
+                    </div>
+                    <div class="visual-feature">
+                        <i class="fas fa-lock"></i>
+                        <span>Account Protection</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="js/supabase-shim.js"></script>
+    <script type="module">
+        import { authManager } from './js/auth.js';
+        import { showToast, showLoading } from './js/utils.js';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initVerificationPage();
+        });
+
+        async function initVerificationPage() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const email = urlParams.get('email');
+            // Firebase uses oobCode query param for email verification links
+            const oobCode = urlParams.get('oobCode') || urlParams.get('token') || null;
+
+            if (email) {
+                document.getElementById('user-email').textContent = email;
+            }
+
+            // If oobCode is present, try to apply it via Firebase Identity REST API
+            if (oobCode) {
+                await handleEmailConfirmation(oobCode, email);
+                return;
+            }
+
+            setupVerificationHandlers(email);
+        }
+
+        function setupVerificationHandlers(email) {
+            const resendBtn = document.getElementById('resend-btn');
+
+            resendBtn.addEventListener('click', async () => {
+                if (!email) {
+                    showToast('Email address not found', 'error');
+                    return;
+                }
+
+                try {
+                    showLoading(true);
+                    resendBtn.disabled = true;
+                    resendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+
+                    const result = await authManager.resendVerification(email);
+
+                    if (result.success) {
+                        showToast('Verification email sent successfully! Check your inbox.', 'success');
+                    } else {
+                        showToast(result.error || 'Failed to send verification email', 'error');
+                    }
+                } catch (error) {
+                    console.error('Resend verification error:', error);
+                    showToast('Failed to send verification email', 'error');
+                } finally {
+                    showLoading(false);
+                    resendBtn.disabled = false;
+                    resendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Resend Verification Email';
+                }
+            });
+        }
+
+        async function handleEmailConfirmation(oobCode, emailHint) {
+            // Uses Firebase Identity Toolkit REST API to apply the out-of-band code
+            // This does not require server-side packages; it's a simple POST to
+            // https://identitytoolkit.googleapis.com/v1/accounts:update?key=API_KEY
+            try {
+                showLoading(true);
+
+                const apiKey = window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.apiKey;
+                if (!apiKey) throw new Error('Firebase API key not found in window.FIREBASE_CONFIG');
+
+                const endpoint = `https://identitytoolkit.googleapis.com/v1/accounts:update?key=${encodeURIComponent(apiKey)}`;
+                const body = { oobCode };
+
+                const resp = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+
+                const result = await resp.json();
+                if (!resp.ok) {
+                    console.error('verify response error', result);
+                    const msg = result && result.error && result.error.message ? result.error.message : 'Verification failed';
+                    showToast(msg, 'error');
+                    setupVerificationHandlers(emailHint);
+                    return;
+                }
+
+                // If successful, Identity Toolkit returns the user's email and requestType
+                showToast('Email verified successfully! You can now login.', 'success');
+
+                // small delay to let the user see the message
+                setTimeout(() => {
+                    window.location.href = 'login.html';
+                }, 1800);
+            } catch (error) {
+                console.error('Email confirmation error:', error);
+                showToast(error && error.message ? error.message : 'Email verification failed. Please try again.', 'error');
+                setupVerificationHandlers(emailHint);
+            } finally {
+                showLoading(false);
+            }
+        }
+    </script>
+
+    <style>
+        .verification-content {
+            text-align: center;
+            padding: var(--spacing-8) 0;
+        }
+
+        .verification-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto var(--spacing-6);
+            background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-700) 100%);
+            border-radius: var(--border-radius-full);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: var(--font-size-2xl);
+            color: white;
+        }
+
+        .verification-info {
+            margin-bottom: var(--spacing-8);
+        }
+
+        .verification-info p {
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-4);
+        }
+
+        .email-address {
+            font-weight: 600;
+            color: var(--primary-600);
+            background: var(--bg-tertiary);
+            padding: var(--spacing-2) var(--spacing-4);
+            border-radius: var(--border-radius-md);
+            display: inline-block;
+        }
+
+        .verification-actions {
+            margin-bottom: var(--spacing-8);
+        }
+
+        .verification-links {
+            margin-top: var(--spacing-4);
+            font-size: var(--font-size-sm);
+            color: var(--text-tertiary);
+        }
+
+        .verification-links a {
+            color: var(--primary-600);
+            text-decoration: none;
+        }
+
+        .verification-links a:hover {
+            color: var(--primary-700);
+        }
+    </style>
+</body>
+
+</html>
