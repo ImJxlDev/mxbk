@@ -12,6 +12,10 @@ window.FIREBASE_CONFIG = {
 // Tell the app to prefer Firebase for auth/db
 window.USE_AUTH = "firebase";
 
+// TEMPORARY: Disable email verification for testing
+// Set to true once Firebase email is configured
+window.REQUIRE_EMAIL_VERIFICATION = false;
+
 // Load Firebase SDK scripts
 const scripts = [
   "https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js",

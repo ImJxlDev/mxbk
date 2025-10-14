@@ -5,14 +5,23 @@
 (function (window) {
   if (window.supabase) return; // don't overwrite
 
-  const firebase = window.firebase;
-  if (!firebase) {
-    console.error(
-      "Supabase shim requires Firebase to be loaded first (window.firebase)"
-    );
-    window.supabase = null;
-    return;
-  }
+  // Wait for Firebase to be ready (retry mechanism)
+  function initShim() {
+    const firebase = window.firebase;
+    if (!firebase) {
+      // Retry after a short delay if Firebase is still loading
+      if (!window._supabaseShimRetryCount) window._supabaseShimRetryCount = 0;
+      if (window._supabaseShimRetryCount < 30) { // Max 3 seconds (30 * 100ms)
+        window._supabaseShimRetryCount++;
+        setTimeout(initShim, 100);
+        return;
+      }
+      console.error(
+        "Supabase shim requires Firebase to be loaded first (window.firebase)"
+      );
+      window.supabase = null;
+      return;
+    }
 
   const db = firebase.firestore();
   const listeners = new Map();
@@ -208,4 +217,8 @@
       return { __sql: true, expr: strings.join("${}"), value: values[0] };
     },
   };
+  } // Close initShim function
+  
+  // Start the initialization
+  initShim();
 })(window);
