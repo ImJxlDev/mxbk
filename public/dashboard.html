@@ -849,6 +849,8 @@
       </button>
     </nav>
 
+    <!-- Replace EVERYTHING after </nav> closing tag in dashboard.html with this: -->
+
     <!-- Loading Overlay -->
     <div class="loading-overlay" id="loadingOverlay">
       <div class="loading-spinner">
@@ -861,19 +863,165 @@
   <!-- Toast Container -->
   <div class="toast-container" id="toast-container"></div>
 
-  <!-- Scripts -->
+  <!-- Scripts - LOAD IN THIS ORDER -->
   <script src="js/firebase-config.js"></script>
   <script src="js/supabase-shim.js"></script>
+
+  <!-- Replace the Dashboard Auth Guard in dashboard.html with this: -->
+
+  <!-- Dashboard Auth Guard - MUST RUN FIRST -->
+  <script type="module">
+    import { authManager } from './js/auth-client.js';
+    import { getFirebaseClient } from './js/firebase.js';
+
+    // Wait for everything to initialize
+    async function waitForReady() {
+      console.log('🔄 Dashboard guard: Waiting for initialization...');
+
+      // Wait for Firebase (15 seconds max)
+      let attempts = 0;
+      while (!window.FIREBASE_INITIALIZED && attempts < 150) {
+        await new Promise(r => setTimeout(r, 100));
+        attempts++;
+      }
+
+      if (!window.FIREBASE_INITIALIZED) {
+        throw new Error('Firebase timeout');
+      }
+      console.log('✅ Firebase ready');
+
+      // Wait for AuthManager (15 seconds max)
+      attempts = 0;
+      while (!authManager.ready && attempts < 150) {
+        await new Promise(r => setTimeout(r, 100));
+        attempts++;
+      }
+
+      if (!authManager.ready) {
+        throw new Error('AuthManager timeout');
+      }
+      console.log('✅ AuthManager ready');
+
+      // CRITICAL: Wait for Firebase Auth state to initialize
+      console.log('⏳ Waiting for Firebase Auth state...');
+      const fb = await getFirebaseClient();
+
+      // Wait for the initial auth state check to complete
+      await new Promise((resolve) => {
+        // If already signed in, resolve immediately
+        if (fb.auth.currentUser) {
+          console.log('   Already have current user:', fb.auth.currentUser.email);
+          resolve();
+          return;
+        }
+
+        // Otherwise wait for auth state to initialize
+        const unsubscribe = fb.auth.onAuthStateChanged((user) => {
+          console.log('   Auth state initialized:', user ? user.email : 'null');
+          unsubscribe();
+          resolve();
+        });
+
+        // Timeout after 3 seconds
+        setTimeout(() => {
+          console.log('   Auth state timeout');
+          unsubscribe();
+          resolve();
+        }, 3000);
+      });
+
+      console.log('✅ Auth state initialized');
+
+      // Give authManager time to process the auth state
+      await new Promise(r => setTimeout(r, 500));
+      console.log('✅ Auth state settled');
+
+      return true;
+    }
+
+    // Check authentication
+    async function checkAuth() {
+      try {
+        console.log('🔐 Dashboard: Checking authentication...');
+
+        await waitForReady();
+
+        // Now check authentication
+        let isAuth = authManager.isAuthenticated();
+        console.log('   Direct auth check:', isAuth);
+
+        if (!isAuth) {
+          console.log('   Attempting to restore session...');
+          const hasSession = await authManager.checkSession();
+          console.log('   Session restored:', hasSession);
+
+          if (!hasSession) {
+            console.log('❌ No authentication - redirecting');
+            sessionStorage.setItem('loginMessage', 'Please log in to access the dashboard');
+            window.location.replace('login.html');
+            return false;
+          }
+
+          isAuth = true;
+        }
+
+        const user = authManager.getUser();
+        const profile = authManager.getProfile();
+
+        console.log('✅ Dashboard: User authenticated');
+        console.log('   Email:', user?.email);
+        console.log('   Name:', profile?.full_name);
+
+        // Make authManager globally available for dashboard.js
+        window.authManager = authManager;
+        window.dashboardAuthorized = true;
+
+        return true;
+      } catch (err) {
+        console.error('❌ Dashboard auth error:', err);
+        window.location.replace('login.html');
+        return false;
+      }
+    }
+
+    // Run check
+    checkAuth();
+  </script>
+
+
+
+  <!-- TradingView -->
   <script src="https://s3.tradingview.com/tv.js"></script>
+
+  <!-- Dashboard Main Script -->
   <script type="module" src="js/dashboard.js"></script>
 
+  <!-- Utility Functions (inline for compatibility) -->
   <script>
     // Trading Panel and Modal Functionality
     let currentSymbol = "BTC/USD";
     let tradingViewWidget = null;
 
-    document.addEventListener("DOMContentLoaded", () => {
-      console.log("✅ Dashboard Loaded");
+    // Wait for dashboard authorization before initializing
+    async function waitForDashboardAuth() {
+      let attempts = 0;
+      while (!window.dashboardAuthorized && attempts < 50) {
+        await new Promise(r => setTimeout(r, 100));
+        attempts++;
+      }
+      return window.dashboardAuthorized === true;
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      // Wait for auth check to complete
+      const authorized = await waitForDashboardAuth();
+
+      if (!authorized) {
+        console.log('⏳ Waiting for authorization...');
+        return;
+      }
+
+      console.log("✅ Dashboard Loaded - Initializing UI");
 
       // Initialize page navigation
       initializePageNavigation();
@@ -884,49 +1032,8 @@
       // Initialize symbol modal
       initializeSymbolModal();
 
-      // Initialize live payment generator
-      initializeLivePayments();
-
       // Initialize TradingView widget
       initializeTradingView("BINANCE:BTCUSDT");
-
-      // Handle window resize for TradingView responsiveness
-      let resizeTimeout;
-      window.addEventListener("resize", () => {
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(() => {
-          if (tradingViewWidget && window.TradingView) {
-            // Force TradingView to recalculate dimensions
-            const container = document.getElementById(
-              "tradingview_dashboard"
-            );
-            if (container) {
-              container.style.width = "100%";
-              container.style.height = "100%";
-              // Reinitialize widget on resize for better responsiveness
-              if (window.innerWidth <= 768) {
-                initializeTradingView(currentSymbol);
-              }
-            }
-          }
-        }, 250);
-      });
-
-      // Handle orientation change for mobile devices
-      window.addEventListener("orientationchange", () => {
-        setTimeout(() => {
-          if (tradingViewWidget && window.TradingView) {
-            const container = document.getElementById(
-              "tradingview_dashboard"
-            );
-            if (container) {
-              container.style.width = "100%";
-              container.style.height = "100%";
-              initializeTradingView(currentSymbol);
-            }
-          }
-        }, 500);
-      });
     });
 
     function initializePageNavigation() {
@@ -939,8 +1046,6 @@
         if (targetPage) {
           targetPage.classList.add("active");
           console.log(`📄 Switched to: ${pageName}Page`);
-        } else {
-          console.warn(`⚠️ Page not found: ${pageName}Page`);
         }
 
         navItems.forEach((btn) => btn.classList.remove("active"));
@@ -961,104 +1066,43 @@
     }
 
     function initializeTrading() {
-      // Symbol selector click handler
       const symbolSelector = document.getElementById("symbolSelector");
       if (symbolSelector) {
         symbolSelector.addEventListener("click", openSymbolModal);
       }
 
-      // Category tab switching
       document.querySelectorAll(".category-tab").forEach((tab) => {
         tab.addEventListener("click", () => {
-          document
-            .querySelectorAll(".category-tab")
+          document.querySelectorAll(".category-tab")
             .forEach((t) => t.classList.remove("active"));
           tab.classList.add("active");
 
-          document
-            .querySelectorAll(".symbol-category")
+          document.querySelectorAll(".symbol-category")
             .forEach((c) => (c.style.display = "none"));
-          document.querySelector(
-            `.symbol-category.${tab.dataset.category}`
-          ).style.display = "block";
+          document.querySelector(`.symbol-category.${tab.dataset.category}`)
+            .style.display = "block";
         });
       });
 
-      // Symbol item selection
       document.querySelectorAll(".symbol-item").forEach((item) => {
         item.addEventListener("click", () => {
           const symbol = item.dataset.symbol;
           selectSymbol(symbol);
         });
       });
-
-      // Symbol search functionality
-      const symbolSearch = document.getElementById("symbolSearch");
-      if (symbolSearch) {
-        symbolSearch.addEventListener("input", (e) => {
-          const searchTerm = e.target.value.toLowerCase();
-          filterSymbols(searchTerm);
-        });
-      }
     }
 
     function initializeSymbolModal() {
       const modal = document.getElementById("symbolModal");
       const modalClose = document.getElementById("modalClose");
 
-      // Close modal when clicking close button
       if (modalClose) {
         modalClose.addEventListener("click", closeSymbolModal);
       }
 
-      // Close modal when clicking outside content
       if (modal) {
         modal.addEventListener("click", (e) => {
           if (e.target === modal) {
-            closeSymbolModal();
-          }
-        });
-
-        // Prevent modal content from closing when clicked
-        const modalContent = modal.querySelector(".symbol-modal-content");
-        if (modalContent) {
-          modalContent.addEventListener("click", (e) => {
-            e.stopPropagation();
-          });
-        }
-      }
-
-      // Close modal with ESC key
-      document.addEventListener("keydown", (e) => {
-        if (
-          e.key === "Escape" &&
-          modal &&
-          modal.classList.contains("active")
-        ) {
-          closeSymbolModal();
-        }
-      });
-
-      // Close modal on back button (mobile)
-      window.addEventListener("popstate", () => {
-        if (modal && modal.classList.contains("active")) {
-          closeSymbolModal();
-        }
-      });
-
-      // Handle touch events for better mobile experience
-      let touchStartY = 0;
-      let touchEndY = 0;
-
-      if (modal) {
-        modal.addEventListener("touchstart", (e) => {
-          touchStartY = e.changedTouches[0].screenY;
-        });
-
-        modal.addEventListener("touchend", (e) => {
-          touchEndY = e.changedTouches[0].screenY;
-          // Close modal if user swipes down significantly
-          if (touchStartY - touchEndY > 100 && e.target === modal) {
             closeSymbolModal();
           }
         });
@@ -1067,40 +1111,25 @@
 
     function openSymbolModal() {
       const modal = document.getElementById("symbolModal");
-      if (modal) {
-        modal.classList.add("active");
-      }
+      if (modal) modal.classList.add("active");
     }
 
     function closeSymbolModal() {
       const modal = document.getElementById("symbolModal");
-      if (modal) {
-        modal.classList.remove("active");
-      }
+      if (modal) modal.classList.remove("active");
     }
 
     function selectSymbol(symbol) {
       currentSymbol = symbol;
       const currentSymbolEl = document.getElementById("current-symbol");
-      if (currentSymbolEl) {
-        currentSymbolEl.textContent = symbol;
-      }
+      if (currentSymbolEl) currentSymbolEl.textContent = symbol;
 
-      // Update TradingView widget
       initializeTradingView(getTradingViewSymbol(symbol));
-
-      // Update order summary
-      const summarySymbol = document.getElementById("summarySymbol");
-      if (summarySymbol) {
-        summarySymbol.textContent = symbol;
-      }
-
       closeSymbolModal();
       showToast(`Symbol changed to ${symbol}`, "success");
     }
 
     function getTradingViewSymbol(symbol) {
-      // Convert symbol format for TradingView
       const symbolMap = {
         "BTC/USD": "BINANCE:BTCUSDT",
         "ETH/USD": "BINANCE:ETHUSDT",
@@ -1117,35 +1146,13 @@
         MSFT: "NASDAQ:MSFT",
         TSLA: "NASDAQ:TSLA",
       };
-
       return symbolMap[symbol] || "BINANCE:BTCUSDT";
-    }
-
-    function filterSymbols(searchTerm) {
-      document.querySelectorAll(".symbol-item").forEach((item) => {
-        const symbolName = item
-          .querySelector(".symbol-name")
-          .textContent.toLowerCase();
-        const symbolDescription = item
-          .querySelector(".symbol-description")
-          .textContent.toLowerCase();
-
-        if (
-          symbolName.includes(searchTerm) ||
-          symbolDescription.includes(searchTerm)
-        ) {
-          item.style.display = "flex";
-        } else {
-          item.style.display = "none";
-        }
-      });
     }
 
     function initializeTradingView(symbol) {
       const container = document.getElementById("tradingview_dashboard");
       if (!container) return;
 
-      // Clear existing widget
       if (tradingViewWidget) {
         tradingViewWidget.remove();
       }
@@ -1171,7 +1178,6 @@
           responsive: true,
           save_image: false,
           show_popup_button: false,
-          studies: [],
           disabled_features: [
             "use_localstorage_for_settings",
             "header_symbol_search",
@@ -1186,208 +1192,10 @@
       }
     }
 
-    function initializeLivePayments() {
-      const livePaymentContainer = document.getElementById(
-        "livePaymentContainer"
-      );
-      if (!livePaymentContainer) return;
-
-      const names = [
-        "John Smith",
-        "Maria Garcia",
-        "Ahmed Khan",
-        "Liu Wei",
-        "Carlos Rodriguez",
-        "Grace Thompson",
-        "Ifeoma Okafor",
-        "Hiroshi Matsumoto",
-        "Elena Brown",
-        "Samir Hussein",
-        "Daniela Vega",
-        "Kwame Asante",
-        "Sophia Martinez",
-        "Andre Perez",
-        "Fatima Zahra",
-        "Olivia Johnson",
-        "Noah Williams",
-        "Emma Jones",
-        "Liam Davis",
-        "Ava Miller",
-        "Mason Wilson",
-        "Isabella Taylor",
-        "Ethan Anderson",
-        "Mia Thomas",
-        "Jacob Jackson",
-        "Amelia White",
-        "Michael Harris",
-        "Charlotte Martin",
-        "Alexander Lee",
-        "Harper Thompson",
-        "Benjamin Moore",
-        "Evelyn Clark",
-        "James Lewis",
-        "Abigail Walker",
-        "William Hall",
-        "Ella Young",
-        "Daniel King",
-        "Sofia Allen",
-        "Matthew Wright",
-        "Avery Scott",
-        "Anthony Adams",
-        "Scarlett Baker",
-        "David Gonzalez",
-        "Lily Nelson",
-        "Joseph Carter",
-        "Aria Mitchell",
-        "Samuel Perez",
-        "Chloe Roberts",
-        "Christopher Turner",
-        "Penelope Phillips",
-        "Andrew Campbell",
-        "Riley Parker",
-        "Joshua Evans",
-        "Zoey Edwards",
-        "Ryan Collins",
-        "Nora Stewart",
-        "Nathan Sanchez",
-        "Hannah Morris",
-        "Jonathan Rogers",
-        "Lillian Reed",
-        "Christian Cook",
-        "Addison Morgan",
-        "Dylan Bell",
-        "Aubrey Murphy",
-        "Elijah Bailey",
-        "Ellie Rivera",
-        "Gabriel Cooper",
-        "Stella Richardson",
-        "Owen Cox",
-        "Violet Howard",
-        "Sebastian Ward",
-        "Aurora Peterson",
-        "Carter Gray",
-        "Lucy Ramirez",
-        "Caleb James",
-        "Hazel Watson",
-        "Isaac Brooks",
-        "Paisley Kelly",
-        "Hunter Sanders",
-        "Anna Price",
-        "Julian Bennett",
-        "Leah Wood",
-        "Leo Barnes",
-        "Skylar Ross",
-        "Jack Henderson",
-        "Camila Coleman",
-        "Luke Jenkins",
-        "Ariana Perry",
-        "Henry Powell",
-        "Mila Long",
-        "Wyatt Patterson",
-        "Layla Hughes",
-        "Connor Flores",
-        "Madelyn Washington",
-        "Landon Butler",
-        "Savannah Simmons",
-        "Christian Foster",
-        "Brooklyn Gonzales",
-        "Jonathan Bryant",
-        "Elliana Alexander",
-        "Nicholas Russell",
-        "Clara Griffin",
-        "Jaxon Diaz",
-        "Bella Hayes",
-      ];
-
-      const countries = [
-        "USA",
-        "UK",
-        "Canada",
-        "Germany",
-        "Japan",
-        "Nigeria",
-        "India",
-        "Brazil",
-        "France",
-        "Australia",
-        "South Africa",
-        "UAE",
-        "Mexico",
-        "Kenya",
-        "Italy",
-        "Spain",
-        "Sweden",
-        "Norway",
-        "Russia",
-        "China",
-      ];
-
-      const actions = ["deposit", "withdrawal"];
-      let usedNames = [];
-      let usedAvatars = [];
-
-      function getUniqueName() {
-        if (usedNames.length >= names.length) usedNames = [];
-        let name;
-        do {
-          name = names[Math.floor(Math.random() * names.length)];
-        } while (usedNames.includes(name));
-        usedNames.push(name);
-        return name;
-      }
-
-      function getUniqueAvatar() {
-        if (usedAvatars.length >= 90) usedAvatars = [];
-        let avatar;
-        do {
-          const id = Math.floor(Math.random() * 70) + 1;
-          avatar = `https://i.pravatar.cc/150?img=${id}`;
-        } while (usedAvatars.includes(avatar));
-        usedAvatars.push(avatar);
-        return avatar;
-      }
-
-      function generatePayment() {
-        const name = getUniqueName();
-        const country =
-          countries[Math.floor(Math.random() * countries.length)];
-        const action = actions[Math.floor(Math.random() * actions.length)];
-        const amount = (Math.random() * (5000 - 50) + 50).toFixed(2);
-        const avatar = getUniqueAvatar();
-
-        const transaction = document.createElement("div");
-        transaction.className = `payment-item ${action}`;
-        transaction.innerHTML = `
-            <img class="payment-avatar" src="${avatar}" alt="${name}">
-            <div class="payment-details">
-              <span class="name">${name}</span>
-              <span class="country">${country}</span>
-              <span>
-                just made a <span class="action">${action}</span> of
-                <span class="amount">$${amount}</span>
-              </span>
-            </div>
-          `;
-
-        livePaymentContainer.prepend(transaction);
-
-        // Keep max 10 items
-        if (livePaymentContainer.children.length > 10) {
-          livePaymentContainer.lastElementChild.remove();
-        }
-      }
-
-      // Generate initial payments
-      for (let i = 0; i < 5; i++) generatePayment();
-
-      // Generate a new payment every 3 seconds
-      setInterval(generatePayment, 3000);
-    }
-
-    // Toast notification function
     function showToast(message, type = "info") {
-      const toastContainer =
-        document.getElementById("toast-container") || createToastContainer();
+      const toastContainer = document.getElementById("toast-container");
+      if (!toastContainer) return;
+
       const toast = document.createElement("div");
       toast.className = `toast ${type}`;
 
@@ -1398,191 +1206,26 @@
       };
 
       toast.innerHTML = `
-          <i class="toast-icon ${iconMap[type]}"></i>
-          <span class="toast-message">${message}</span>
-        `;
+            <i class="toast-icon ${iconMap[type]}"></i>
+            <span class="toast-message">${message}</span>
+          `;
 
       toastContainer.appendChild(toast);
 
-      // Remove toast after 3 seconds
       setTimeout(() => {
-        toast.style.animation = "toastSlideOut 0.3s ease forwards";
-        setTimeout(() => {
-          if (toast.parentNode) {
-            toast.parentNode.removeChild(toast);
-          }
-        }, 300);
+        toast.remove();
       }, 3000);
-    }
-
-    function createToastContainer() {
-      const container = document.createElement("div");
-      container.id = "toast-container";
-      container.className = "toast-container";
-      document.body.appendChild(container);
-
-      // Add CSS for toast slide out animation
-      const style = document.createElement("style");
-      style.textContent = `
-          @keyframes toastSlideOut {
-            from {
-              opacity: 1;
-              transform: translateX(0);
-            }
-            to {
-              opacity: 0;
-              transform: translateX(100%);
-            }
-          }
-        `;
-      document.head.appendChild(style);
-
-      return container;
     }
 
     // Profile Modal Functions
     function openProfileModal() {
       const modal = document.getElementById("profileModal");
-      if (modal) {
-        // Load user data into modal
-        loadProfileModalData();
-        modal.classList.add("active");
-      }
+      if (modal) modal.classList.add("active");
     }
 
     function closeProfileModal() {
       const modal = document.getElementById("profileModal");
-      if (modal) {
-        modal.classList.remove("active");
-      }
-    }
-
-    function loadProfileModalData() {
-      // Load user data using the dashboard's update method
-      if (
-        window.tradingDashboard &&
-        window.tradingDashboard.updateProfileModalData
-      ) {
-        window.tradingDashboard.updateProfileModalData();
-      }
-    }
-
-    function navigateToProfile() {
-      closeProfileModal();
-      showPage("profile");
-    }
-
-    function openSettings() {
-      closeProfileModal();
-      showToast("Settings panel coming soon!", "info");
-    }
-
-    function openSecurity() {
-      closeProfileModal();
-      showToast("Security settings coming soon!", "info");
-    }
-
-    function openSupport() {
-      closeProfileModal();
-      showPage("support");
-    }
-
-    function logout() {
-      if (confirm("Are you sure you want to logout?")) {
-        closeProfileModal();
-        showToast("Logged out successfully!", "success");
-        // Add actual logout logic here
-      }
-    }
-
-    // Initialize profile modal
-    document.addEventListener("DOMContentLoaded", () => {
-      const profileModal = document.getElementById("profileModal");
-      const profileModalClose = document.getElementById("profileModalClose");
-
-      if (profileModalClose) {
-        profileModalClose.addEventListener("click", closeProfileModal);
-      }
-
-      if (profileModal) {
-        profileModal.addEventListener("click", (e) => {
-          if (e.target === profileModal) {
-            closeProfileModal();
-          }
-        });
-
-        // Prevent modal content from closing when clicked
-        const modalContent = profileModal.querySelector(
-          ".profile-modal-content"
-        );
-        if (modalContent) {
-          modalContent.addEventListener("click", (e) => {
-            e.stopPropagation();
-          });
-        }
-      }
-
-      // Close modal with ESC key
-      document.addEventListener("keydown", (e) => {
-        if (
-          e.key === "Escape" &&
-          profileModal &&
-          profileModal.classList.contains("active")
-        ) {
-          closeProfileModal();
-        }
-      });
-    });
-
-    // Support Functions
-    function startLiveChat() {
-      showToast("Connecting to live chat...", "info");
-      // Simulate connecting to live chat
-      setTimeout(() => {
-        showToast(
-          "Connected! Chat agent will be with you shortly.",
-          "success"
-        );
-        // Here you would typically open a chat widget or redirect to chat page
-      }, 1500);
-    }
-
-    function openSupportTicket() {
-      showToast("Opening support ticket form...", "info");
-      // Here you would typically open a modal or redirect to ticket creation page
-      setTimeout(() => {
-        showToast("Support ticket form ready!", "success");
-      }, 1000);
-    }
-
-    function callSupport() {
-      showToast("Connecting to phone support...", "info");
-      // Here you would typically initiate a phone call or show phone number
-      setTimeout(() => {
-        showToast("Phone support available at +1 (555) 123-4567", "success");
-      }, 1000);
-    }
-
-    function openHelpCenter() {
-      showToast("Opening help center...", "info");
-      // Here you would typically redirect to help center or open help modal
-      setTimeout(() => {
-        showToast("Help center loaded!", "success");
-      }, 1000);
-    }
-
-    function toggleFAQ(element) {
-      const faqItem = element.parentElement;
-      const faqAnswer = faqItem.querySelector(".faq-answer");
-      const faqIcon = element.querySelector("i");
-
-      faqItem.classList.toggle("active");
-
-      if (faqItem.classList.contains("active")) {
-        faqAnswer.style.maxHeight = faqAnswer.scrollHeight + "px";
-      } else {
-        faqAnswer.style.maxHeight = "0";
-      }
+      if (modal) modal.classList.remove("active");
     }
 
     // Make functions globally available
@@ -1592,14 +1235,7 @@
     window.showToast = showToast;
     window.openProfileModal = openProfileModal;
     window.closeProfileModal = closeProfileModal;
-    window.startLiveChat = startLiveChat;
-    window.openSupportTicket = openSupportTicket;
-    window.callSupport = callSupport;
-    window.openHelpCenter = openHelpCenter;
-    window.toggleFAQ = toggleFAQ;
   </script>
 </body>
-
-<!-- Mirrored from mpxtt.netlify.app/dashboard.html by HTTrack Website Copier/3.x [XR&CO'2014], Sun, 21 Sep 2025 20:39:42 GMT -->
 
 </html>

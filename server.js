@@ -1,0 +1,528 @@
+// server.js - Complete Backend Authentication Server
+const express = require("express");
+const cors = require("cors");
+const nodemailer = require("nodemailer");
+const crypto = require("crypto");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const admin = require("firebase-admin");
+const path = require("path");
+require("dotenv").config();
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.static("public")); // Serve frontend files
+
+// Initialize Firebase Admin
+const serviceAccount = require("./serviceAccountKey.json");
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+const db = admin.firestore();
+
+// JWT Secret
+const JWT_SECRET = process.env.JWT_SECRET || "024f236b2bf7653d";
+
+// Email transporter
+const transporter = nodemailer.createTransport({
+  service: "gmail", // or your email service
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
+
+// Store verification tokens temporarily (use Redis in production)
+const verificationTokens = new Map();
+const passwordResetTokens = new Map();
+
+// Helper function to generate tokens
+function generateToken() {
+  return crypto.randomBytes(32).toString("hex");
+}
+
+// Helper function to send verification email
+async function sendVerificationEmail(email, token) {
+  const verificationUrl = `http://localhost:${PORT}/api/auth/verify-email?token=${token}`;
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: "Verify Your Email - Top-Margin Trading",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Welcome to Top-Margin Trading!</h2>
+        <p>Thank you for signing up. Please verify your email address by clicking the button below:</p>
+        <a href="${verificationUrl}" 
+           style="display: inline-block; padding: 12px 24px; background-color: #4CAF50; color: white; 
+                  text-decoration: none; border-radius: 4px; margin: 20px 0;">
+          Verify Email
+        </a>
+        <p>Or copy and paste this link into your browser:</p>
+        <p style="color: #666;">${verificationUrl}</p>
+        <p>This link will expire in 24 hours.</p>
+        <p>If you didn't create an account, please ignore this email.</p>
+      </div>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+}
+
+// Helper function to send password reset email
+async function sendPasswordResetEmail(email, token) {
+  const resetUrl = `http://localhost:${PORT}/reset-password.html?token=${token}`;
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: "Reset Your Password - Top-Margin Trading",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Password Reset Request</h2>
+        <p>We received a request to reset your password. Click the button below to proceed:</p>
+        <a href="${resetUrl}" 
+           style="display: inline-block; padding: 12px 24px; background-color: #2196F3; color: white; 
+                  text-decoration: none; border-radius: 4px; margin: 20px 0;">
+          Reset Password
+        </a>
+        <p>Or copy and paste this link into your browser:</p>
+        <p style="color: #666;">${resetUrl}</p>
+        <p>This link will expire in 1 hour.</p>
+        <p>If you didn't request a password reset, please ignore this email.</p>
+      </div>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+}
+
+// Middleware to verify JWT token
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({ error: "Access token required" });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: "Invalid or expired token" });
+    }
+    req.user = user;
+    next();
+  });
+}
+
+// ============= AUTH ROUTES =============
+
+// Register new user
+app.post("/api/auth/register", async (req, res) => {
+  try {
+    const { email, password, fullName } = req.body;
+
+    // Validate input
+    if (!email || !password || !fullName) {
+      return res.status(400).json({ error: "All fields are required" });
+    }
+
+    if (password.length < 8) {
+      return res
+        .status(400)
+        .json({ error: "Password must be at least 8 characters" });
+    }
+
+    // Check if user already exists
+    const userQuery = await db
+      .collection("users")
+      .where("email", "==", email.toLowerCase())
+      .get();
+    if (!userQuery.empty) {
+      return res.status(400).json({ error: "Email already registered" });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create user in Firestore
+    const userRef = await db.collection("users").add({
+      email: email.toLowerCase(),
+      password: hashedPassword,
+      full_name: fullName,
+      email_verified: false,
+      created_at: admin.firestore.FieldValue.serverTimestamp(),
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      role: "user",
+      status: "active",
+    });
+
+    // Create user profile
+    await db
+      .collection("profiles")
+      .doc(userRef.id)
+      .set({
+        user_id: userRef.id,
+        full_name: fullName,
+        email: email.toLowerCase(),
+        role: "user",
+        balances: {
+          USD: 0,
+          BTC: 0,
+          ETH: 0,
+        },
+        created_at: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+    // Generate verification token
+    const verificationToken = generateToken();
+    verificationTokens.set(verificationToken, {
+      userId: userRef.id,
+      email: email.toLowerCase(),
+      expires: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+    });
+
+    // Send verification email
+    await sendVerificationEmail(email, verificationToken);
+
+    res.status(201).json({
+      success: true,
+      message:
+        "Registration successful. Please check your email to verify your account.",
+      userId: userRef.id,
+    });
+  } catch (error) {
+    console.error("Registration error:", error);
+    res.status(500).json({ error: "Registration failed. Please try again." });
+  }
+});
+
+// Verify email
+app.get("/api/auth/verify-email", async (req, res) => {
+  try {
+    const { token } = req.query;
+
+    if (!token) {
+      return res.status(400).send("Invalid verification link");
+    }
+
+    const tokenData = verificationTokens.get(token);
+    if (!tokenData) {
+      return res.status(400).send("Invalid or expired verification link");
+    }
+
+    if (Date.now() > tokenData.expires) {
+      verificationTokens.delete(token);
+      return res.status(400).send("Verification link has expired");
+    }
+
+    // Update user as verified
+    await db.collection("users").doc(tokenData.userId).update({
+      email_verified: true,
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Clean up token
+    verificationTokens.delete(token);
+
+    // Redirect to success page
+    res.redirect("/verify-success.html");
+  } catch (error) {
+    console.error("Email verification error:", error);
+    res.status(500).send("Verification failed");
+  }
+});
+
+// Resend verification email
+app.post("/api/auth/resend-verification", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    // Find user
+    const userQuery = await db
+      .collection("users")
+      .where("email", "==", email.toLowerCase())
+      .get();
+    if (userQuery.empty) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const userDoc = userQuery.docs[0];
+    const userData = userDoc.data();
+
+    if (userData.email_verified) {
+      return res.status(400).json({ error: "Email already verified" });
+    }
+
+    // Generate new verification token
+    const verificationToken = generateToken();
+    verificationTokens.set(verificationToken, {
+      userId: userDoc.id,
+      email: email.toLowerCase(),
+      expires: Date.now() + 24 * 60 * 60 * 1000,
+    });
+
+    // Send verification email
+    await sendVerificationEmail(email, verificationToken);
+
+    res.json({ success: true, message: "Verification email sent" });
+  } catch (error) {
+    console.error("Resend verification error:", error);
+    res.status(500).json({ error: "Failed to resend verification email" });
+  }
+});
+
+// Login
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and password are required" });
+    }
+
+    // Find user
+    const userQuery = await db
+      .collection("users")
+      .where("email", "==", email.toLowerCase())
+      .get();
+    if (userQuery.empty) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    const userDoc = userQuery.docs[0];
+    const userData = userDoc.data();
+
+    // Check if email is verified
+    if (!userData.email_verified) {
+      return res.status(403).json({
+        error: "Email not verified. Please check your inbox.",
+        needsVerification: true,
+        email: email.toLowerCase(),
+      });
+    }
+
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, userData.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    // Get user profile
+    const profileDoc = await db.collection("profiles").doc(userDoc.id).get();
+    const profileData = profileDoc.data();
+
+    // Generate JWT token
+    const token = jwt.sign(
+      {
+        userId: userDoc.id,
+        email: userData.email,
+        role: userData.role,
+      },
+      JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: userDoc.id,
+        email: userData.email,
+        full_name: userData.full_name,
+        role: userData.role,
+        email_verified: userData.email_verified,
+      },
+      profile: profileData,
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ error: "Login failed. Please try again." });
+  }
+});
+
+// Forgot password
+app.post("/api/auth/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    // Find user
+    const userQuery = await db
+      .collection("users")
+      .where("email", "==", email.toLowerCase())
+      .get();
+    if (userQuery.empty) {
+      // Don't reveal if email exists
+      return res.json({
+        success: true,
+        message: "If the email exists, a reset link has been sent",
+      });
+    }
+
+    const userDoc = userQuery.docs[0];
+
+    // Generate reset token
+    const resetToken = generateToken();
+    passwordResetTokens.set(resetToken, {
+      userId: userDoc.id,
+      email: email.toLowerCase(),
+      expires: Date.now() + 60 * 60 * 1000, // 1 hour
+    });
+
+    // Send password reset email
+    await sendPasswordResetEmail(email, resetToken);
+
+    res.json({ success: true, message: "Password reset email sent" });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    res.status(500).json({ error: "Failed to process request" });
+  }
+});
+
+// Reset password
+app.post("/api/auth/reset-password", async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res
+        .status(400)
+        .json({ error: "Token and new password are required" });
+    }
+
+    if (newPassword.length < 8) {
+      return res
+        .status(400)
+        .json({ error: "Password must be at least 8 characters" });
+    }
+
+    const tokenData = passwordResetTokens.get(token);
+    if (!tokenData) {
+      return res.status(400).json({ error: "Invalid or expired reset link" });
+    }
+
+    if (Date.now() > tokenData.expires) {
+      passwordResetTokens.delete(token);
+      return res.status(400).json({ error: "Reset link has expired" });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update user password
+    await db.collection("users").doc(tokenData.userId).update({
+      password: hashedPassword,
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Clean up token
+    passwordResetTokens.delete(token);
+
+    res.json({ success: true, message: "Password reset successful" });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.status(500).json({ error: "Failed to reset password" });
+  }
+});
+
+// Get current user (protected route)
+app.get("/api/auth/me", authenticateToken, async (req, res) => {
+  try {
+    const userDoc = await db.collection("users").doc(req.user.userId).get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const userData = userDoc.data();
+    const profileDoc = await db
+      .collection("profiles")
+      .doc(req.user.userId)
+      .get();
+    const profileData = profileDoc.data();
+
+    res.json({
+      user: {
+        id: userDoc.id,
+        email: userData.email,
+        full_name: userData.full_name,
+        role: userData.role,
+        email_verified: userData.email_verified,
+      },
+      profile: profileData,
+    });
+  } catch (error) {
+    console.error("Get user error:", error);
+    res.status(500).json({ error: "Failed to get user data" });
+  }
+});
+
+// Logout (client-side handles token removal, but we can blacklist if needed)
+app.post("/api/auth/logout", authenticateToken, (req, res) => {
+  res.json({ success: true, message: "Logged out successfully" });
+});
+
+// ============= SERVE FRONTEND =============
+
+// Serve frontend pages
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+app.get("/signup", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "signup.html"));
+});
+
+app.get("/login", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "login.html"));
+});
+
+app.get("/dashboard", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "dashboard.html"));
+});
+
+app.get("/verify-success.html", (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Email Verified</title>
+      <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+        .success { color: #4CAF50; font-size: 24px; margin: 20px 0; }
+        .btn { 
+          display: inline-block; padding: 12px 24px; background: #4CAF50; 
+          color: white; text-decoration: none; border-radius: 4px; margin-top: 20px;
+        }
+      </style>
+    </head>
+    <body>
+      <h1>✅ Email Verified!</h1>
+      <p class="success">Your email has been successfully verified.</p>
+      <p>You can now log in to your account.</p>
+      <a href="/login" class="btn">Go to Login</a>
+    </body>
+    </html>
+  `);
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(
+    `📧 Email service: ${
+      process.env.EMAIL_USER ? "Configured" : "NOT CONFIGURED"
+    }`
+  );
+});

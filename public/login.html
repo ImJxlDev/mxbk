@@ -104,9 +104,222 @@
 
     <!-- Toast Container -->
     <div class="toast-container" id="toast-container"></div>
+    <!-- Scripts -->
+    <script>
+        // Add this to login.html script section at the beginning
 
+        async function initLoginPage() {
+            // Show any stored message from redirect
+            const storedMessage = sessionStorage.getItem('loginMessage');
+            if (storedMessage) {
+                showToast(storedMessage, 'info');
+                sessionStorage.removeItem('loginMessage');
+            }
+
+            // Wait for authManager to be ready
+            let attempts = 0;
+            while (!authManager.ready && attempts < 50) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                attempts++;
+            }
+
+            if (!authManager.ready) {
+                showToast('Authentication system loading...', 'info');
+                // Wait a bit more
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+
+            // Check if user is already logged in
+            const hasSession = await authManager.checkSession();
+            if (hasSession) {
+                const profile = authManager.getProfile();
+                const user = authManager.getUser();
+
+                // Check email verification
+                const requireVerification = window.REQUIRE_EMAIL_VERIFICATION !== false;
+                if (requireVerification && user && !user.emailVerified) {
+                    console.log('⚠️ User has session but email not verified');
+                    showToast('Please verify your email before logging in', 'warning');
+                    await authManager.logout();
+                    return;
+                }
+
+                console.log('✅ User already logged in, redirecting...');
+                showToast('Already logged in, redirecting...', 'success');
+
+                setTimeout(() => {
+                    if (profile?.role === 'admin') {
+                        window.location.replace('admin.html');
+                    } else {
+                        window.location.replace('dashboard.html');
+                    }
+                }, 500);
+                return;
+            }
+
+            // Setup form handlers
+            setupLoginForm();
+        }
+
+        function setupLoginForm() {
+            const form = document.getElementById('login-form');
+            const emailInput = document.getElementById('email');
+            const passwordInput = document.getElementById('password');
+            const passwordToggle = document.getElementById('password-toggle');
+            const submitBtn = document.getElementById('login-btn');
+            const forgotPasswordLink = document.getElementById('forgot-password');
+
+            // Password visibility toggle
+            passwordToggle.addEventListener('click', () => {
+                const type = passwordInput.type === 'password' ? 'text' : 'password';
+                passwordInput.type = type;
+                passwordToggle.innerHTML = type === 'password'
+                    ? '<i class="fas fa-eye"></i>'
+                    : '<i class="fas fa-eye-slash"></i>';
+            });
+
+            // Forgot password handler
+            forgotPasswordLink.addEventListener('click', async (e) => {
+                e.preventDefault();
+                const email = emailInput.value.trim();
+
+                if (!email) {
+                    showToast('Please enter your email address first', 'warning');
+                    emailInput.focus();
+                    return;
+                }
+
+                if (!isValidEmail(email)) {
+                    showToast('Please enter a valid email address', 'error');
+                    return;
+                }
+
+                try {
+                    showLoading(true);
+                    const result = await authManager.forgotPassword(email);
+
+                    if (result.success) {
+                        showToast('Password reset email sent! Check your inbox.', 'success');
+                    } else {
+                        showToast(result.error || 'Failed to send reset email', 'error');
+                    }
+                } catch (error) {
+                    showToast('Failed to send reset email', 'error');
+                } finally {
+                    showLoading(false);
+                }
+            });
+
+            // Form submission
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                if (!validateForm()) return;
+
+                try {
+                    showLoading(true);
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing In...';
+
+                    const email = emailInput.value.trim().toLowerCase();
+                    const password = passwordInput.value;
+
+                    const result = await authManager.login(email, password);
+
+                    if (result.success) {
+                        showToast('Login successful! Redirecting...', 'success');
+
+                        // Wait a moment for auth state to update
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+
+                        const profile = authManager.getProfile();
+                        if (profile?.role === 'admin') {
+                            window.location.replace('admin.html');
+                        } else {
+                            window.location.replace('dashboard.html');
+                        }
+                    } else {
+                        const err = result.error || 'Login failed';
+                        showToast(err, 'error');
+
+                        // Show resend verification if needed
+                        const unverified = window.UNVERIFIED_EMAIL || null;
+                        if (unverified) {
+                            const resendArea = document.getElementById('resend-verification');
+                            const resendMsg = document.getElementById('resend-message');
+                            resendMsg.textContent = `Email ${unverified} is not verified. Check your inbox or resend the verification.`;
+                            resendArea.style.display = 'block';
+                        }
+                    }
+                } catch (error) {
+                    console.error('Login error:', error);
+                    showToast('An error occurred during login. Please try again.', 'error');
+                } finally {
+                    showLoading(false);
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In';
+                }
+            });
+
+            // Resend verification button handler
+            const resendBtn = document.getElementById('resend-btn');
+            if (resendBtn) {
+                resendBtn.addEventListener('click', async () => {
+                    showLoading(true);
+                    try {
+                        const result = await authManager.resendVerification();
+                        if (result.success) {
+                            showToast('Verification email resent. Check your inbox.', 'success');
+                        } else {
+                            showToast(result.error || 'Failed to resend verification', 'error');
+                        }
+                    } catch (err) {
+                        console.error('Resend error:', err);
+                        showToast('Failed to resend verification', 'error');
+                    } finally {
+                        showLoading(false);
+                    }
+                });
+            }
+
+            // Real-time validation
+            emailInput.addEventListener('input', () => validateField('email'));
+            passwordInput.addEventListener('input', () => validateField('password'));
+
+            function validateField(fieldName) {
+                const field = document.getElementById(fieldName);
+                const errorElement = document.getElementById(`${fieldName}-error`);
+                let isValid = true;
+                let message = '';
+
+                if (fieldName === 'email') {
+                    if (!field.value.trim()) {
+                        message = 'Email is required';
+                        isValid = false;
+                    } else if (!isValidEmail(field.value)) {
+                        message = 'Please enter a valid email address';
+                        isValid = false;
+                    }
+                } else if (fieldName === 'password') {
+                    if (!field.value) {
+                        message = 'Password is required';
+                        isValid = false;
+                    }
+                }
+
+                errorElement.textContent = message;
+                field.classList.toggle('error', !isValid);
+                return isValid;
+            }
+
+            function validateForm() {
+                return validateField('email') && validateField('password');
+            }
+        }
+
+    </script>
     <script type="module">
-        import { authManager } from './js/auth.js';
+        import { authManager } from '/js/auth-client.js';
         import { showToast, showLoading, isValidEmail } from './js/utils.js';
 
         document.addEventListener('DOMContentLoaded', () => {

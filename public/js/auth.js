@@ -1,4 +1,4 @@
-// Clean Firebase-only AuthManager
+// Clean Firebase-only AuthManager - Fixed version
 import {
   signUp as fbSignUp,
   signIn as fbSignIn,
@@ -16,42 +16,72 @@ class AuthManager {
     this.currentUser = null;
     this.currentProfile = null;
     this.ready = false;
+    this.initPromise = null;
     this.init();
   }
 
   async init() {
-    const fb = await firebaseReady;
-    if (!fb) {
-      console.error("Firebase adapter not available");
-      this.ready = false;
-      return;
-    }
+    if (this.initPromise) return this.initPromise;
 
-    // observe auth state
-    fb.auth.onAuthStateChanged(async (user) => {
-      if (user) await this.handleSignIn();
-      else this.handleSignOut();
-    });
+    this.initPromise = (async () => {
+      try {
+        console.log("🔄 AuthManager initializing...");
+        const fb = await firebaseReady;
 
-    await this.checkSession();
-    this.ready = true;
+        if (!fb) {
+          console.error("❌ Firebase adapter not available");
+          this.ready = false;
+          return;
+        }
+
+        console.log("✅ Firebase adapter ready in AuthManager");
+
+        // Observe auth state changes
+        fb.auth.onAuthStateChanged(async (user) => {
+          console.log("🔄 Auth state changed:", user ? user.uid : "null");
+          if (user) {
+            await this.handleSignIn();
+          } else {
+            this.handleSignOut();
+          }
+        });
+
+        // Check current session
+        await this.checkSession();
+        this.ready = true;
+        console.log("✅ AuthManager ready");
+      } catch (err) {
+        console.error("❌ AuthManager init error:", err);
+        this.ready = false;
+      }
+    })();
+
+    return this.initPromise;
   }
+
+  // In auth.js, replace the checkSession method with this:
 
   async checkSession() {
     try {
+      console.log("🔍 Checking session...");
       const { user, profile } = await fbGetCurrentUser();
+
       if (!user) {
+        console.log("   No user found");
         this.currentUser = null;
         this.currentProfile = null;
         return false;
       }
 
-      // enforce email verification, unless runtime flag disables it (for testing)
-      const requireVerification =
-        typeof window.REQUIRE_EMAIL_VERIFICATION === "boolean"
-          ? window.REQUIRE_EMAIL_VERIFICATION
-          : true;
+      console.log("   User found:", user.email);
+      console.log("   Email verified:", user.emailVerified);
+
+      // Check email verification requirement
+      const requireVerification = window.REQUIRE_EMAIL_VERIFICATION !== false;
+      console.log("   Require verification:", requireVerification);
+
       if (requireVerification && !user.emailVerified) {
+        console.log("⚠️ Email not verified for:", user.email);
         try {
           await fbSignOut();
         } catch (_) {}
@@ -61,26 +91,38 @@ class AuthManager {
         return false;
       }
 
+      // Set current user and profile
       this.currentUser = user;
       this.currentProfile = profile || null;
+      console.log("✅ Session valid:", user.email);
       return true;
     } catch (err) {
-      console.error("checkSession error", err);
+      console.error("❌ checkSession error:", err);
       this.currentUser = null;
       this.currentProfile = null;
       return false;
     }
   }
 
+  // In auth.js, replace the handleSignIn method with this:
+
   async handleSignIn() {
     try {
+      console.log("🔄 handleSignIn: Getting current user...");
       const { user, profile } = await fbGetCurrentUser();
-      if (!user) return;
-      const requireVerification =
-        typeof window.REQUIRE_EMAIL_VERIFICATION === "boolean"
-          ? window.REQUIRE_EMAIL_VERIFICATION
-          : true;
+
+      if (!user) {
+        console.log("   No user in handleSignIn");
+        return;
+      }
+
+      console.log("   User in handleSignIn:", user.email);
+      console.log("   Email verified:", user.emailVerified);
+
+      const requireVerification = window.REQUIRE_EMAIL_VERIFICATION !== false;
+
       if (requireVerification && !user.emailVerified) {
+        console.log("⚠️ Sign in blocked - email not verified");
         try {
           await fbSignOut();
         } catch (_) {}
@@ -89,64 +131,97 @@ class AuthManager {
         this.currentProfile = null;
         return;
       }
+
       this.currentUser = user;
       this.currentProfile = profile || null;
+      console.log("✅ User signed in:", user.email);
+      console.log("   Profile:", profile?.full_name || "No profile");
     } catch (err) {
-      console.error("handleSignIn error", err);
+      console.error("❌ handleSignIn error:", err);
     }
   }
 
   handleSignOut() {
     this.currentUser = null;
     this.currentProfile = null;
+    console.log("🚪 User signed out");
   }
 
   async register(email, password, fullName) {
     try {
+      console.log("📝 Registering user:", email);
       const { data, error } = await fbSignUp(email, password, fullName);
       if (error) throw error;
+      console.log("✅ Registration successful");
       return { success: true, data };
     } catch (err) {
+      console.error("❌ Registration error:", err);
       return { success: false, error: err.message || String(err) };
     }
   }
 
   async login(email, password) {
     try {
+      console.log("🔐 Logging in user:", email);
       const { data, error } = await fbSignIn(email, password);
       if (error) throw error;
+
+      // Check verification if required
+      const requireVerification = window.REQUIRE_EMAIL_VERIFICATION !== false;
+      if (requireVerification && data.user && !data.user.emailVerified) {
+        console.log("⚠️ Login blocked - email not verified");
+        window.UNVERIFIED_EMAIL = data.user.email;
+        await fbSignOut();
+        return {
+          success: false,
+          error:
+            "Please verify your email before logging in. Check your inbox.",
+        };
+      }
+
+      console.log("✅ Login successful");
       return { success: true, data };
     } catch (err) {
+      console.error("❌ Login error:", err);
       return { success: false, error: err.message || String(err) };
     }
   }
 
   async logout() {
     try {
+      console.log("🚪 Logging out...");
       const { error } = await fbSignOut();
       if (error) throw error;
+      console.log("✅ Logout successful");
       return { success: true };
     } catch (err) {
+      console.error("❌ Logout error:", err);
       return { success: false, error: err.message || String(err) };
     }
   }
 
   async forgotPassword(email) {
     try {
+      console.log("📧 Sending password reset to:", email);
       const { error } = await fbResetPassword(email);
       if (error) throw error;
+      console.log("✅ Password reset email sent");
       return { success: true };
     } catch (err) {
+      console.error("❌ Password reset error:", err);
       return { success: false, error: err.message || String(err) };
     }
   }
 
   async resendVerification() {
     try {
+      console.log("📧 Resending verification email...");
       const res = await sendVerificationForCurrentUser();
       if (res && res.error) throw res.error;
+      console.log("✅ Verification email resent");
       return { success: true };
     } catch (err) {
+      console.error("❌ Resend verification error:", err);
       return { success: false, error: err.message || String(err) };
     }
   }
@@ -168,31 +243,17 @@ class AuthManager {
   }
 }
 
-// Helper: compute Gravatar URL from email
-function gravatarUrl(email, size = 80, defaultStyle = "identicon") {
-  if (!email)
-    return `https://www.gravatar.com/avatar/?d=${defaultStyle}&s=${size}`;
-  const trimmed = email.trim().toLowerCase();
-  // simple md5 implementation for browser compatibility
-  function md5cycle(x, k) {
-    // ...existing code...
-  }
-  // To avoid adding an md5 implementation here, use ui-avatars fallback if no gravatar
-  return `https://www.gravatar.com/avatar/${md5(
-    trimmed
-  )}?s=${size}&d=${defaultStyle}`;
-}
-
-// Placeholder md5 - if unavailable, gravatar service will serve default
+// Simple md5 hash for gravatar
 function md5(input) {
-  // minimal stub: return hex of simple char codes (not cryptographically correct)
   let h = 0;
-  for (let i = 0; i < input.length; i++) h = (h << 5) - h + input.charCodeAt(i);
+  for (let i = 0; i < input.length; i++) {
+    h = (h << 5) - h + input.charCodeAt(i);
+  }
   return ("00000000" + (h >>> 0).toString(16)).slice(-8);
 }
 
+// Avatar helper methods
 AuthManager.prototype.getAvatarForUser = function (user, profile) {
-  // Check local override first (stored by uid)
   try {
     const key = `avatar_override_${user?.uid || user?.id || ""}`;
     const override = localStorage.getItem(key);
@@ -201,25 +262,21 @@ AuthManager.prototype.getAvatarForUser = function (user, profile) {
     // ignore storage errors
   }
 
-  // Prefer profile.avatar if present
   if (profile && profile.avatar) return profile.avatar;
 
-  // Use gravatar based on email
-  const email =
-    (user && (user.email || user.email)) || (profile && profile.email) || "";
-  if (email)
+  const email = user?.email || profile?.email || "";
+  if (email) {
     return `https://www.gravatar.com/avatar/${md5(
       email.trim().toLowerCase()
     )}?s=80&d=identicon`;
+  }
 
-  // Fallback to ui-avatars
-  const name = (profile && profile.full_name) || email || "User";
+  const name = profile?.full_name || email || "User";
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(
     name
   )}&background=random&size=80&bold=true`;
 };
 
-// Allow setting a local avatar URL override (stored in localStorage per-user)
 AuthManager.prototype.setLocalAvatar = function (user, avatarUrl) {
   try {
     const key = `avatar_override_${user?.uid || user?.id || ""}`;
@@ -230,7 +287,7 @@ AuthManager.prototype.setLocalAvatar = function (user, avatarUrl) {
     }
     return true;
   } catch (e) {
-    console.error("setLocalAvatar error", e);
+    console.error("setLocalAvatar error:", e);
     return false;
   }
 };
@@ -241,13 +298,12 @@ AuthManager.prototype.clearLocalAvatar = function (user) {
     localStorage.removeItem(key);
     return true;
   } catch (e) {
-    console.error("clearLocalAvatar error", e);
+    console.error("clearLocalAvatar error:", e);
     return false;
   }
 };
 
 export const authManager = new AuthManager();
-// expose globally for non-module pages
-window.authManager = window.authManager || authManager;
+window.authManager = authManager;
 
 export default authManager;

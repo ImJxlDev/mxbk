@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Email - Top-Margin Trading</title>
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/landing.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .verify-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .verify-card {
+            max-width: 500px;
+            width: 100%;
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        .verify-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            color: white;
+        }
+
+        .verify-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+
+        .verify-message {
+            font-size: 16px;
+            color: var(--text-muted);
+            margin-bottom: 24px;
+            line-height: 1.6;
+        }
+
+        .verify-email {
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .verify-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .btn {
+            padding: 14px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: none;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 2px solid var(--border);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--hover);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .countdown {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-top: 16px;
+        }
+
+        .success-animation {
+            animation: scaleIn 0.5s ease-out;
+        }
+
+        @keyframes scaleIn {
+            from {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="verify-container">
+        <div class="verify-card success-animation">
+            <div class="verify-icon">
+                <i class="fas fa-envelope-open"></i>
+            </div>
+            <h1 class="verify-title">Verify Your Email</h1>
+            <p class="verify-message">
+                We've sent a verification email to<br>
+                <span class="verify-email" id="userEmail">your email</span>
+            </p>
+            <p class="verify-message">
+                Please check your inbox and click the verification link to activate your account.
+            </p>
+
+            <div class="verify-actions">
+                <button class="btn btn-secondary" id="resendBtn">
+                    <i class="fas fa-redo"></i>
+                    Resend Verification Email
+                </button>
+                <a href="/login" class="btn btn-primary">
+                    <i class="fas fa-sign-in-alt"></i>
+                    Go to Login
+                </a>
+            </div>
+
+            <div class="countdown" id="countdown"></div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script type="module">
+        import { authManager } from './js/auth-client.js';
+
+        // Get email from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const email = urlParams.get('email');
+
+        if (email) {
+            document.getElementById('userEmail').textContent = email;
+        }
+
+        // Resend verification
+        let resendCooldown = 0;
+        const resendBtn = document.getElementById('resendBtn');
+        const countdownEl = document.getElementById('countdown');
+
+        function startCooldown() {
+            resendCooldown = 60;
+            resendBtn.disabled = true;
+            
+            const interval = setInterval(() => {
+                resendCooldown--;
+                countdownEl.textContent = `You can resend in ${resendCooldown} seconds`;
+                
+                if (resendCooldown <= 0) {
+                    clearInterval(interval);
+                    resendBtn.disabled = false;
+                    countdownEl.textContent = '';
+                }
+            }, 1000);
+        }
+
+        resendBtn.addEventListener('click', async () => {
+            if (!email) {
+                showToast('Email address not found', 'error');
+                return;
+            }
+
+            try {
+                resendBtn.disabled = true;
+                resendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+
+                const result = await authManager.resendVerification(email);
+
+                if (result.success) {
+                    showToast('Verification email sent! Check your inbox.', 'success');
+                    startCooldown();
+                } else {
+                    showToast(result.error || 'Failed to resend email', 'error');
+                    resendBtn.disabled = false;
+                }
+            } catch (error) {
+                console.error('Resend error:', error);
+                showToast('Failed to resend verification email', 'error');
+                resendBtn.disabled = false;
+            } finally {
+                resendBtn.innerHTML = '<i class="fas fa-redo"></i> Resend Verification Email';
+            }
+        });
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            const iconMap = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                info: 'fa-info-circle'
+            };
+            
+            toast.innerHTML = `
+                <i class="fas ${iconMap[type]}"></i>
+                <span>${message}</span>
+            `;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

@@ -22,81 +22,50 @@ class TradingDashboard {
     this.init();
   }
 
+  // In dashboard.js, replace the init() method with this:
+
   async init() {
-    // Ensure authManager is available. Some pages load it as a module
-    // and others expect it to be global. Try to resolve it dynamically.
-    if (typeof authManager === "undefined" || !authManager) {
-      try {
-        const mod = await import("./auth.js");
-        if (mod && mod.authManager) {
-          window.authManager = mod.authManager;
-        }
-      } catch (e) {
-        console.warn("Could not import ./auth.js (dashboard fallback):", e);
-      }
-    }
+    // Wait for authManager to be available (set by dashboard.html guard)
+    console.log("🔄 Dashboard initializing, waiting for authManager...");
 
-    // Final fallback: try to use the supabase-shim (window.supabase) to read current user/profile
-    if (typeof authManager === "undefined" || !authManager) {
-      try {
-        const sup = window.supabase;
-        if (sup && sup.auth && sup.auth.getUser) {
-          const currentResp = await sup.auth.getUser();
-          const current = currentResp?.data?.user
-            ? { user: currentResp.data.user, profile: null }
-            : null;
-          // attempt to load profile if user exists
-          if (current && current.user) {
-            const profRes = await sup
-              .from("profiles")
-              .eq("id", current.user.uid || current.user.id)
-              .single();
-            current.profile = profRes?.data || null;
-          }
-          if (current && current.user && current.profile) {
-            window.authManager = {
-              isAuthenticated: () => !!current.user,
-              getUser: () => current.user,
-              getProfile: () => current.profile,
-              logout: async () => {
-                if (sup.auth.signOut) await sup.auth.signOut();
-              },
-            };
-          }
-        }
-      } catch (e) {
-        console.warn("Supabase shim fallback failed:", e);
-      }
-    }
-
-    // Give authManager a chance to populate session if it exposes checkSession()
-    if (authManager && typeof authManager.checkSession === "function") {
-      try {
-        await authManager.checkSession();
-      } catch (e) {
-        console.warn("authManager.checkSession() failed or is not ready:", e);
-      }
-    }
-
-    // Check authentication
-    if (
-      !authManager ||
-      !authManager.isAuthenticated ||
-      !authManager.isAuthenticated()
+    let attempts = 0;
+    while (
+      (!window.authManager || !window.authManager.ready) &&
+      attempts < 100
     ) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      attempts++;
+    }
+
+    if (!window.authManager || !window.authManager.ready) {
+      console.error("❌ AuthManager not ready after waiting");
       window.location.href = "login.html";
       return;
+    }
+
+    console.log("✅ AuthManager is ready");
+
+    // Check authentication
+    if (!authManager.isAuthenticated()) {
+      console.log("⚠️ User not authenticated, checking session...");
+      const hasSession = await authManager.checkSession();
+      if (!hasSession) {
+        console.log("❌ No valid session");
+        window.location.href = "login.html";
+        return;
+      }
     }
 
     this.currentUser = authManager.getUser();
     this.currentProfile = authManager.getProfile();
 
-    // Display name from Supabase profile - will be updated in updateUserInterface()
-
     if (!this.currentUser || !this.currentProfile) {
+      console.log("❌ No user or profile data");
       window.location.href = "login.html";
       return;
     }
+
+    console.log("✅ Dashboard initialized for:", this.currentUser.email);
 
     this.updateTime();
     this.setupEventListeners();
