@@ -25,6 +25,7 @@
         <div class="user-info">
           <span class="greeting" id="greeting">Good morning</span>
           <span class="username" id="username">Loading...</span>
+          <span class="user-role-badge" id="userRoleBadge"></span>
         </div>
       </div>
       <div class="header-right">
@@ -587,20 +588,32 @@
               </div>
               <h4 id="profileModalName">Loading...</h4>
               <p id="profileModalEmail">Loading...</p>
+              <div class="profile-meta">
+                <span class="profile-role" id="profileModalRole"></span>
+                <span class="profile-status" id="profileModalStatus"></span>
+              </div>
             </div>
 
             <div class="profile-stats-grid">
               <div class="profile-stat">
-                <span class="stat-value" id="profileModalTrades">0</span>
+                <span class="stat-value" id="profileTotalTrades">0</span>
                 <span class="stat-label">Total Trades</span>
               </div>
               <div class="profile-stat">
-                <span class="stat-value" id="profileModalWinRate">0%</span>
+                <span class="stat-value" id="profileWinRate">0%</span>
                 <span class="stat-label">Win Rate</span>
+              </div>
+              <div class="profile-stat">
+                <span class="stat-value" id="profileDaysActive">0</span>
+                <span class="stat-label">Days Active</span>
               </div>
               <div class="profile-stat">
                 <span class="stat-value" id="profileModalBalance">$0.00</span>
                 <span class="stat-label">Balance</span>
+              </div>
+              <div class="profile-stat">
+                <span class="stat-value" id="profileModalEmailVerified">❌</span>
+                <span class="stat-label">Email Verified</span>
               </div>
             </div>
           </div>
@@ -871,7 +884,7 @@
 
   <!-- Dashboard Auth Guard - MUST RUN FIRST -->
   <script type="module">
-    import { authManager } from './js/auth-client.js';
+    import { authManager } from './js/auth_client.js';
     import { getFirebaseClient } from './js/firebase.js';
 
     // Wait for everything to initialize
@@ -1235,6 +1248,74 @@
     window.showToast = showToast;
     window.openProfileModal = openProfileModal;
     window.closeProfileModal = closeProfileModal;
+  </script>
+  <script>
+    // Personalize header and profile modal with user info after dashboard loads
+    document.addEventListener('DOMContentLoaded', function () {
+      function updateUserUI() {
+        if (window.authManager && window.authManager.getProfile && window.authManager.getUser) {
+          const profile = window.authManager.getProfile();
+          const user = window.authManager.getUser();
+          if (profile) {
+            // Header username
+            const usernameEl = document.getElementById('username');
+            if (usernameEl) {
+              usernameEl.textContent = profile.full_name || profile.email || 'User';
+            }
+            // Header greeting
+            const greetingEl = document.getElementById('greeting');
+            if (greetingEl) {
+              const hour = new Date().getHours();
+              let timeGreeting = 'Good morning';
+              if (hour >= 12 && hour < 18) timeGreeting = 'Good afternoon';
+              else if (hour >= 18) timeGreeting = 'Good evening';
+              const userName = profile.full_name ? profile.full_name.split(' ')[0] : 'there';
+              greetingEl.textContent = `${timeGreeting}, ${userName}!`;
+            }
+            // Header avatar
+            const avatarEl = document.querySelector('.user-avatar img');
+            if (avatarEl && window.authManager.getAvatarForUser) {
+              avatarEl.src = window.authManager.getAvatarForUser(user, profile);
+            }
+            // Header role badge
+            const badge = document.getElementById('userRoleBadge');
+            if (badge) {
+              badge.textContent = profile.role === 'admin' ? 'Admin' : 'User';
+              badge.className = 'user-role-badge ' + (profile.role || 'user');
+            }
+            // Profile modal name/email
+            const profileModalName = document.getElementById('profileModalName');
+            if (profileModalName) profileModalName.textContent = profile.full_name || profile.email || 'User';
+            const profileModalEmail = document.getElementById('profileModalEmail');
+            if (profileModalEmail) profileModalEmail.textContent = profile.email || '';
+            // Profile modal avatar
+            const profileAvatarEl = document.querySelector('.profile-avatar-large img');
+            if (profileAvatarEl && window.authManager.getAvatarForUser) {
+              profileAvatarEl.src = window.authManager.getAvatarForUser(user, profile);
+            }
+            // Profile modal role/status
+            const roleEl = document.getElementById('profileModalRole');
+            if (roleEl) roleEl.textContent = profile.role ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1) : '';
+            const statusEl = document.getElementById('profileModalStatus');
+            if (statusEl) statusEl.textContent = profile.status ? profile.status.charAt(0).toUpperCase() + profile.status.slice(1) : '';
+            // Email verified
+            const verifiedEl = document.getElementById('profileModalEmailVerified');
+            if (verifiedEl) verifiedEl.textContent = profile.email_verified ? '✅' : '❌';
+          }
+        }
+      }
+      // Wait for authManager to be ready, then update UI
+      let tries = 0;
+      function waitForAuthManager() {
+        if (window.authManager && window.authManager.ready) {
+          updateUserUI();
+        } else if (tries < 30) {
+          tries++;
+          setTimeout(waitForAuthManager, 200);
+        }
+      }
+      waitForAuthManager();
+    });
   </script>
 </body>
 

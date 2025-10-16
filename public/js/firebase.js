@@ -114,26 +114,8 @@ export async function signUp(email, password, fullName) {
       console.warn("⚠️ Firestore not available: profile write skipped");
     }
 
-    // Send verification email (if enabled)
-    const requireVerification = window.REQUIRE_EMAIL_VERIFICATION !== false;
-    if (requireVerification) {
-      try {
-        console.log("📧 Sending verification email...");
-        await user.sendEmailVerification();
-        console.log("✅ Verification email sent");
-      } catch (err) {
-        console.error("❌ Verification email failed:", err);
-        return {
-          data: { user, profile },
-          error: new Error(
-            "Account created but verification email failed: " +
-              (err?.message || String(err))
-          ),
-        };
-      }
-    } else {
-      console.log("⚠️ Email verification disabled");
-    }
+    // Do NOT send verification email from client. Backend will handle email verification via Nodemailer.
+    // The backend will send the verification email and update Firestore profile status.
 
     return { data: { user, profile }, error: null };
   } catch (err) {
@@ -220,20 +202,16 @@ export async function resendConfirmation() {
     return { error: new Error("No signed-in user") };
   }
 
-  try {
-    console.log("📧 Resending verification email...");
-    await user.sendEmailVerification();
-    console.log("✅ Verification email sent");
-    return { error: null };
-  } catch (err) {
-    console.error("❌ Resend verification error:", err);
-    return { error: err };
-  }
+  // Do NOT resend verification email from client. Use backend endpoint for resending verification email.
+  return {
+    error: new Error("Resend verification must be handled by backend."),
+  };
 }
 
 // Send verification for current user
 export async function sendVerificationForCurrentUser() {
-  return resendConfirmation();
+  // Do NOT send verification email from client. Use backend endpoint for resending verification email.
+  return { error: new Error("Send verification must be handled by backend.") };
 }
 
 // Get current user

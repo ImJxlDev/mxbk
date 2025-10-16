@@ -1,341 +1,353 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deposit Funds - Top-Margin  Trading</title>
+    <title>Deposit Funds - Top-Margin Trading</title>
     <meta name="description" content="Deposit funds to your Top-Margin  trading account">
     <link rel="icon" type="image/svg+xml" href="img/logo.svg">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <!-- ✅ ADD THIS: Wrap your CSS in <style> -->
     <style>
-    /* ======= Dashboard & Deposit Page Styles ======= */
+        /* ======= Dashboard & Deposit Page Styles ======= */
 
-    /* General Reset */
-    body {
-        margin: 0;
-        font-family: 'Segoe UI', Roboto, Arial, sans-serif;
-        background-color: #121212;
-        color: #f5f5f5;
-        line-height: 1.5;
-    }
+        /* General Reset */
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+            background-color: #121212;
+            color: #f5f5f5;
+            line-height: 1.5;
+        }
 
-    h1, h3, h4 {
-        margin: 0;
-    }
+        h1,
+        h3,
+        h4 {
+            margin: 0;
+        }
 
-    button, input, select {
-        font-family: inherit;
-        outline: none;
-        border: none;
-        background: none;
-        color: inherit;
-    }
+        button,
+        input,
+        select {
+            font-family: inherit;
+            outline: none;
+            border: none;
+            background: none;
+            color: inherit;
+        }
 
-    /* Layout */
-    .dashboard-container {
-        display: flex;
-        flex-direction: column;
-        min-height: 100vh;
-    }
+        /* Layout */
+        .dashboard-container {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
 
-    /* ======= Top Bar ======= */
-    .topbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 1rem 1.5rem;
-        background-color: #1e1e1e;
-        border-bottom: 1px solid #2a2a2a;
-    }
+        /* ======= Top Bar ======= */
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            background-color: #1e1e1e;
+            border-bottom: 1px solid #2a2a2a;
+        }
 
-    .topbar-left {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-    }
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
 
-    .back-btn {
-        color: #fff;
-        font-size: 1.25rem;
-        transition: opacity 0.2s ease;
-    }
+        .back-btn {
+            color: #fff;
+            font-size: 1.25rem;
+            transition: opacity 0.2s ease;
+        }
 
-    .back-btn:hover {
-        opacity: 0.7;
-    }
+        .back-btn:hover {
+            opacity: 0.7;
+        }
 
-    .page-title {
-        font-size: 1.5rem;
-        font-weight: 600;
-    }
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
 
-    .theme-toggle {
-        background: #2a2a2a;
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        cursor: pointer;
-        transition: background 0.2s ease;
-    }
+        .theme-toggle {
+            background: #2a2a2a;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
 
-    .theme-toggle:hover {
-        background: #3a3a3a;
-    }
+        .theme-toggle:hover {
+            background: #3a3a3a;
+        }
 
-    /* ======= Main Content ======= */
-    .content {
-        flex: 1;
-        padding: 1.5rem;
-        display: flex;
-        justify-content: center;
-        align-items: flex-start;
-    }
+        /* ======= Main Content ======= */
+        .content {
+            flex: 1;
+            padding: 1.5rem;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
 
-    .deposit-container {
-        max-width: 800px;
-        width: 100%;
-        display: flex;
-        flex-direction: column;
-        gap: 1.5rem;
-    }
+        .deposit-container {
+            max-width: 800px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
 
-    /* ======= Balance Card ======= */
-    .balance-card {
-        background: #1e1e1e;
-        padding: 1rem 1.5rem;
-        border-radius: 12px;
-        box-shadow: 0 0 8px rgba(0,0,0,0.2);
-    }
+        /* ======= Balance Card ======= */
+        .balance-card {
+            background: #1e1e1e;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
+        }
 
-    .balance-amount {
-        font-size: 1.8rem;
-        font-weight: 700;
-        margin-top: 0.5rem;
-    }
+        .balance-amount {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-top: 0.5rem;
+        }
 
-    .balance-breakdown {
-        margin-top: 0.5rem;
-        display: flex;
-        gap: 1rem;
-        font-size: 0.9rem;
-        color: #aaa;
-    }
+        .balance-breakdown {
+            margin-top: 0.5rem;
+            display: flex;
+            gap: 1rem;
+            font-size: 0.9rem;
+            color: #aaa;
+        }
 
-    .breakdown-item {
-        display: flex;
-        flex-direction: column;
-    }
-
-    /* ======= Deposit Methods ======= */
-    .deposit-methods h3 {
-        margin-bottom: 0.75rem;
-    }
-
-    .methods-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 1rem;
-    }
-
-    .method-card {
-        background: #1e1e1e;
-        padding: 1rem;
-        border-radius: 12px;
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-        border: 2px solid transparent;
-        cursor: pointer;
-        transition: border 0.2s ease, transform 0.15s ease;
-    }
-
-    .method-card:hover {
-        transform: translateY(-2px);
-        border-color: #444;
-    }
-
-    .method-card.active {
-        border-color: #3b82f6; /* blue highlight */
-    }
-
-    .method-icon i {
-        font-size: 1.5rem;
-        color: #3b82f6;
-    }
-
-    .method-info h4 {
-        margin: 0;
-        font-size: 1.1rem;
-        font-weight: 600;
-    }
-
-    .method-info p {
-        font-size: 0.85rem;
-        color: #aaa;
-    }
-
-    .method-badge {
-        align-self: flex-start;
-        font-size: 0.75rem;
-        background: #3b82f6;
-        color: white;
-        padding: 0.25rem 0.5rem;
-        border-radius: 6px;
-    }
-
-    /* ======= Deposit Form ======= */
-    .deposit-form {
-        background: #1e1e1e;
-        padding: 1.5rem;
-        border-radius: 12px;
-        box-shadow: 0 0 10px rgba(0,0,0,0.2);
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-    }
-
-    .form-group {
-        display: flex;
-        flex-direction: column;
-        gap: 0.3rem;
-    }
-
-    .amount-input-group {
-        display: flex;
-        align-items: center;
-        background: #2a2a2a;
-        border-radius: 8px;
-        overflow: hidden;
-    }
-
-    .currency-symbol {
-        background: #333;
-        padding: 0.5rem 0.75rem;
-        font-weight: bold;
-        font-size: 1.1rem;
-    }
-
-    #deposit-amount {
-        flex: 1;
-        padding: 0.5rem;
-        background: none;
-        border: none;
-        color: #fff;
-        font-size: 1rem;
-    }
-
-    .amount-note {
-        font-size: 0.8rem;
-        color: #aaa;
-    }
-
-    /* Quick Amount Buttons */
-    .quick-amounts {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-    }
-
-    .quick-amount-btn {
-        background: #2a2a2a;
-        padding: 0.5rem 1rem;
-        border-radius: 6px;
-        cursor: pointer;
-        transition: background 0.2s ease;
-    }
-
-    .quick-amount-btn:hover {
-        background: #3a3a3a;
-    }
-
-    /* Payment Details */
-    .payment-details {
-        margin-top: 0.5rem;
-        display: block;
-    }
-
-    .form-row {
-        display: flex;
-        gap: 1rem;
-    }
-
-    /* Fee Summary */
-    .fee-summary {
-        border-top: 1px solid #2a2a2a;
-        padding-top: 0.75rem;
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
-    }
-
-    .fee-item {
-        display: flex;
-        justify-content: space-between;
-    }
-
-    .fee-item.total {
-        font-weight: 600;
-        font-size: 1.1rem;
-    }
-
-    /* Buttons */
-    .btn-primary {
-        background: #3b82f6;
-        color: white;
-        font-size: 1rem;
-        font-weight: 600;
-        border-radius: 8px;
-        padding: 0.75rem 1rem;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-        transition: background 0.2s ease;
-    }
-
-    .btn-primary:hover {
-        background: #2563eb;
-    }
-
-    /* Loading Overlay */
-    .loading-overlay {
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(0,0,0,0.7);
-        justify-content: center;
-        align-items: center;
-        z-index: 999;
-    }
-
-    .loading-spinner {
-        width: 40px;
-        height: 40px;
-        border: 4px solid #ccc;
-        border-top: 4px solid #3b82f6;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-
-    /* Responsive */
-    @media (max-width: 600px) {
-        .form-row {
+        .breakdown-item {
+            display: flex;
             flex-direction: column;
         }
-    }
+
+        /* ======= Deposit Methods ======= */
+        .deposit-methods h3 {
+            margin-bottom: 0.75rem;
+        }
+
+        .methods-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+        }
+
+        .method-card {
+            background: #1e1e1e;
+            padding: 1rem;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: border 0.2s ease, transform 0.15s ease;
+        }
+
+        .method-card:hover {
+            transform: translateY(-2px);
+            border-color: #444;
+        }
+
+        .method-card.active {
+            border-color: #3b82f6;
+            /* blue highlight */
+        }
+
+        .method-icon i {
+            font-size: 1.5rem;
+            color: #3b82f6;
+        }
+
+        .method-info h4 {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .method-info p {
+            font-size: 0.85rem;
+            color: #aaa;
+        }
+
+        .method-badge {
+            align-self: flex-start;
+            font-size: 0.75rem;
+            background: #3b82f6;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+        }
+
+        /* ======= Deposit Form ======= */
+        .deposit-form {
+            background: #1e1e1e;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+
+        .amount-input-group {
+            display: flex;
+            align-items: center;
+            background: #2a2a2a;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .currency-symbol {
+            background: #333;
+            padding: 0.5rem 0.75rem;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        #deposit-amount {
+            flex: 1;
+            padding: 0.5rem;
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 1rem;
+        }
+
+        .amount-note {
+            font-size: 0.8rem;
+            color: #aaa;
+        }
+
+        /* Quick Amount Buttons */
+        .quick-amounts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .quick-amount-btn {
+            background: #2a2a2a;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .quick-amount-btn:hover {
+            background: #3a3a3a;
+        }
+
+        /* Payment Details */
+        .payment-details {
+            margin-top: 0.5rem;
+            display: block;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 1rem;
+        }
+
+        /* Fee Summary */
+        .fee-summary {
+            border-top: 1px solid #2a2a2a;
+            padding-top: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .fee-item {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .fee-item.total {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        /* Buttons */
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: background 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #ccc;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .form-row {
+                flex-direction: column;
+            }
+        }
     </style>
 </head>
+
 <body>
 
 
@@ -346,9 +358,23 @@
                 <a href="dashboard.html" class="back-btn">
                     <i class="fas fa-arrow-left"></i>
                 </a>
+                <div class="user-header-info">
+                    <img id="depositUserAvatar"
+                        src="https://ui-avatars.com/api/?name=User&background=random&size=32&bold=true"
+                        alt="User Avatar"
+                        style="border-radius:50%;width:32px;height:32px;margin-right:8px;vertical-align:middle;">
+                    <span id="depositUserName" style="font-weight:600;">User</span>
+                    <span id="depositUserRole" class="user-role-badge">User</span>
+                </div>
                 <h1 class="page-title">Deposit Funds</h1>
             </div>
-            
+            <div class="topbar-left">
+                <a href="dashboard.html" class="back-btn">
+                    <i class="fas fa-arrow-left"></i>
+                </a>
+                <h1 class="page-title">Deposit Funds</h1>
+            </div>
+
             <div class="topbar-right">
                 <button class="theme-toggle" id="theme-toggle">
                     <i class="fas fa-sun"></i>
@@ -361,6 +387,24 @@
                 <!-- Current Balance Display -->
                 <div class="balance-overview">
                     <div class="balance-card">
+                        <div class="balance-header">
+                            <h3>Available Balance</h3>
+                            <div class="balance-status">
+                                <i class="fas fa-shield-alt"></i>
+                                <span>Secure</span>
+                            </div>
+                        </div>
+                        <div class="balance-amount" id="deposit-available-balance">$0.00</div>
+                        <div class="balance-breakdown">
+                            <div class="breakdown-item">
+                                <span>User Email</span>
+                                <span id="depositUserEmail">-</span>
+                            </div>
+                            <div class="breakdown-item">
+                                <span>Trading Balance</span>
+                                <span id="depositTradingBalance">$0.00</span>
+                            </div>
+                        </div>
                         <h3>Current Balance</h3>
                         <div class="balance-amount" id="current-balance">$15,430.25</div>
                         <div class="balance-breakdown">
@@ -394,7 +438,7 @@
                             </div>
                             <div class="method-badge">Instant</div>
                         </div>
-                        
+
                         <div class="method-card" data-method="bank">
                             <div class="method-icon">
                                 <i class="fas fa-university"></i>
@@ -405,7 +449,7 @@
                             </div>
                             <div class="method-badge">Free</div>
                         </div>
-                        
+
                         <div class="method-card" data-method="crypto">
                             <div class="method-icon">
                                 <i class="fab fa-bitcoin"></i>
@@ -426,14 +470,8 @@
                             <label for="deposit-amount">Deposit Amount</label>
                             <div class="amount-input-group">
                                 <span class="currency-symbol">$</span>
-                                <input 
-                                    type="number" 
-                                    id="deposit-amount" 
-                                    placeholder="0.00" 
-                                    min="10" 
-                                    step="0.01" 
-                                    required
-                                >
+                                <input type="number" id="deposit-amount" placeholder="0.00" min="10" step="0.01"
+                                    required>
                             </div>
                             <div class="amount-note">Minimum deposit: $10.00</div>
                         </div>
@@ -469,7 +507,7 @@
                                 <h4>Bank Transfer Details</h4>
                                 <div class="bank-detail">
                                     <span class="label">Account Name:</span>
-                                    <span class="value">Top-Margin  Trading Ltd</span>
+                                    <span class="value">Top-Margin Trading Ltd</span>
                                 </div>
                                 <div class="bank-detail">
                                     <span class="label">Account Number:</span>
@@ -545,7 +583,33 @@
     </div>
 
     <!-- JS File -->
-   
+
     <script src="js/deposit.js"></script>
 </body>
+<script>
+    // Personalize deposit page with user info
+    document.addEventListener('DOMContentLoaded', function () {
+        setTimeout(function () {
+            if (window.authManager && window.authManager.getProfile) {
+                const profile = window.authManager.getProfile();
+                if (profile) {
+                    // Header
+                    const name = profile.full_name || profile.email || 'User';
+                    const avatar = window.authManager.getAvatarForUser ? window.authManager.getAvatarForUser(profile, profile) : '';
+                    const role = profile.role ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1) : 'User';
+                    const email = profile.email || '-';
+                    document.getElementById('depositUserName').textContent = name;
+                    document.getElementById('depositUserRole').textContent = role;
+                    if (avatar) document.getElementById('depositUserAvatar').src = avatar;
+                    // Balance card
+                    document.getElementById('depositUserEmail').textContent = email;
+                    const balances = profile.balances || { USD: 0 };
+                    document.getElementById('depositTradingBalance').textContent = balances.USD ? '$' + balances.USD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '$0.00';
+                    document.getElementById('deposit-available-balance').textContent = balances.USD ? '$' + balances.USD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '$0.00';
+                }
+            }
+        }, 1200);
+    });
+</script>
+
 </html>

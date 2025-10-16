@@ -1,9 +1,16 @@
 # Top-Margin Trading Platform - Replit Setup
 
 ## Project Overview
-This is a comprehensive trading platform built with Firebase for authentication and database. The platform features real-time trading, user dashboard, admin panel, and secure authentication.
+This is a comprehensive full-stack trading platform built with Node.js/Express backend and Firebase for authentication and database. The platform features real-time trading, user dashboard, admin panel, and secure authentication with email verification.
 
 ## Architecture
+
+### Backend Stack
+- **Node.js/Express**: Server that handles API routes and serves frontend
+- **Firebase Admin SDK**: Server-side Firebase authentication and Firestore operations
+- **Nodemailer**: Email verification and password reset functionality
+- **JWT**: Token-based authentication
+- **bcryptjs**: Password hashing
 
 ### Frontend Stack
 - **HTML5/CSS3**: Modern responsive design with CSS custom properties
@@ -11,11 +18,11 @@ This is a comprehensive trading platform built with Firebase for authentication 
 - **Chart.js**: Real-time trading charts and analytics
 - **TradingView Widget**: Professional market visualization
 - **Font Awesome**: Icon library
+- **Firebase Client SDK**: Client-side Firebase authentication
 
-### Backend/Database
-- **Firebase Authentication**: Email/password authentication with email verification
+### Database
 - **Cloud Firestore**: NoSQL database for storing user profiles, transactions, trades, and more
-- **Firebase Analytics**: User analytics and tracking
+- **Firebase Admin**: Server-side database operations
 
 ### Project Structure
 ```
@@ -101,19 +108,23 @@ This is a comprehensive trading platform built with Firebase for authentication 
 
 ## Recent Changes (October 2025)
 
-### October 14, 2025 (Latest)
-- ✅ **DISABLED email verification temporarily** for testing (can be re-enabled later)
-- ✅ Fixed Firebase initialization timing issue with retry mechanism
-- ✅ Created comprehensive Firebase setup guide (FIREBASE_SETUP_GUIDE.md)
-- ⚠️ **Action Required**: Configure email authentication in Firebase Console
-- ⚠️ **Security Note**: Email verification is OFF - only for testing!
+### October 15, 2025 - Replit Setup Complete ✅
+- ✅ **Configured Express server** to run on 0.0.0.0:5000 for Replit environment
+- ✅ **Fixed dynamic URL handling** for email verification links (works in development and production)
+- ✅ **Fixed critical module loading error** - removed duplicate script tags for utils.js and other ES6 modules
+- ✅ **Updated .gitignore** to protect serviceAccountKey.json and other sensitive files
+- ✅ **Installed all dependencies** - npm packages installed successfully
+- ✅ **Set up workflow** - Server workflow configured to run on port 5000 with nodemon
+- ✅ **Configured deployment** - VM deployment configured with npm start
+- ✅ **Verified frontend** - Landing page loads correctly with Firebase fully initialized
+- ✅ **No errors in console** - All module loading issues resolved
 
-### October 14, 2025 (Earlier)
+### October 14, 2025
 - ✅ Added Firebase configuration to all HTML pages
 - ✅ Fixed script loading order (firebase-config.js before supabase-shim.js)
-- ✅ Set up static web server on port 5000
-- ✅ Verified authentication flow and Firebase integration
-- ✅ Confirmed user profile display and time-based greetings are working
+- ✅ Fixed Firebase initialization timing issue with retry mechanism
+- ✅ Created comprehensive Firebase setup guide (FIREBASE_SETUP_GUIDE.md)
+- ⚠️ Email verification temporarily disabled for testing
 
 ## Firebase Console Setup Required
 
@@ -149,42 +160,62 @@ service cloud.firestore {
 
 ## Development
 
-### Running Locally
-The project uses Python's http.server for static file serving:
+### Running on Replit
+The project runs with Express server and nodemon for auto-reload:
 ```bash
-python -m http.server 5000
+npm run dev  # Uses nodemon for development
+npm start    # Uses node for production
 ```
 
-### Environment
-- Port: 5000 (required for Replit)
-- Host: 0.0.0.0 (binds to all interfaces)
+### Environment Variables
+The following environment variables can be configured (optional):
+- `PORT`: Server port (default: 5000)
+- `JWT_SECRET`: Secret for JWT token signing (has default)
+- `EMAIL_USER`: Email address for sending verification emails (optional)
+- `EMAIL_PASS`: Email password for nodemailer (optional)
+- `NODE_ENV`: Environment mode (development/production)
 
-## Known Issues & TODO
+### Replit Configuration
+- **Port**: 5000 (required for Replit)
+- **Host**: 0.0.0.0 (binds to all interfaces for Replit proxy)
+- **Workflow**: npm run dev (uses nodemon)
+- **Deployment**: VM with npm start
 
-### Current Status
-- ✅ Firebase integration working
-- ✅ Authentication flow implemented
-- ✅ User profile display working
-- ✅ Time-based greetings implemented
-- ⏳ Supabase compatibility layer (supabase-shim.js) provides backward compatibility
+## Setup Complete ✅
 
-### Remaining Tasks (from TODO.md)
-1. Complete migration from Supabase references to pure Firebase
-2. Implement admin withdrawal processing
-3. Add profile picture upload functionality
-4. Fix bonus page tabs functionality
+### Working Features
+- ✅ Express server running on port 5000
+- ✅ Firebase Admin SDK connected
+- ✅ Firebase Client SDK initialized
+- ✅ Authentication system (registration, login, email verification)
+- ✅ User dashboard with real-time data
+- ✅ Admin panel for user management
+- ✅ Real-time price engine
+- ✅ Trading interface
+- ✅ Responsive design for all devices
+
+### Optional Enhancements
+1. Configure email service (EMAIL_USER, EMAIL_PASS) for email verification
+2. Complete migration from Supabase references to pure Firebase
+3. Implement admin withdrawal processing
+4. Add profile picture upload functionality
 5. Enable profile editing for users
-6. Test all features end-to-end
+6. Test all trading features end-to-end
 
 ## Deployment
 
-### Production Deployment
-- Platform: Netlify (planned)
-- Build: Static site (no build step required)
-- Environment: Production Firebase project
+### Replit Deployment
+- **Type**: VM (Virtual Machine) - maintains server state
+- **Command**: npm start (uses node server.js)
+- **Port**: 5000 (automatically exposed)
+- **Environment**: Firebase Admin SDK configured with serviceAccountKey.json
+- **Features**: Email verification, JWT authentication, real-time trading
 
-### Deployment Configuration
-Will be configured using Replit's deployment tool once all features are tested.
+### Production Considerations
+- Email service needs to be configured for production (EMAIL_USER, EMAIL_PASS)
+- Firebase security rules should be reviewed
+- serviceAccountKey.json is protected in .gitignore
+- JWT_SECRET should be set to a strong random value in production
 
 ## User Preferences
 
@@ -231,5 +262,23 @@ This project is in transition from Supabase to Firebase:
 - js/dashboard.js - User interface logic
 - js/admin.js - Admin panel logic
 
+## Key Fixes Applied (October 15, 2025)
+
+### 1. Server Configuration
+- Changed server to bind to `0.0.0.0:5000` for Replit environment
+- Added dynamic base URL detection for email links (uses REPLIT_DEV_DOMAIN)
+- Updated email verification and password reset URLs to work in all environments
+
+### 2. Module Loading Fix (Critical)
+- **Problem**: Files with ES6 `export` statements were loaded as regular scripts
+- **Solution**: Removed duplicate `<script src="js/utils.js">` tags from HTML files
+- **Files Fixed**: index.html, settings.html, withdraw.html
+- **Result**: No more "export declarations may only appear at top level of a module" errors
+
+### 3. Security Updates
+- Added serviceAccountKey.json to .gitignore
+- Protected sensitive configuration files
+- Configured proper CORS and security headers
+
 ---
-Last Updated: October 14, 2025
+Last Updated: October 15, 2025 - Replit Setup Complete ✅

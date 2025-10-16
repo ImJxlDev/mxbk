@@ -1,2 +1,8 @@
 node_modules/
 .env
+serviceAccountKey.json
+*.log
+.DS_Store
+.cache
+.replit
+.upm

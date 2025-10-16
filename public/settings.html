@@ -1,3 +1,7 @@
+<img id="settingsUserAvatar" src="https://ui-avatars.com/api/?name=User&background=random&size=40&bold=true"
+    alt="User Avatar" style="border-radius:50%;width:40px;height:40px;margin-right:8px;vertical-align:middle;">
+<span id="settingsUserName" style="font-weight:600;">User</span>
+<span id="settingsUserRole" class="user-role-badge">User</span>
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 
@@ -320,7 +324,6 @@
     </nav>
 
     <script src="js/config.js"></script>
-    <script src="js/utils.js"></script>
     <script src="js/firebase-config.js"></script>
     <script src="js/supabase-shim.js"></script>
     <script type="module">
@@ -624,5 +627,23 @@
         }
     </script>
 </body>
+<script>
+    // Personalize settings page with user info
+    document.addEventListener('DOMContentLoaded', function () {
+        setTimeout(function () {
+            if (window.authManager && window.authManager.getProfile) {
+                const profile = window.authManager.getProfile();
+                if (profile) {
+                    const name = profile.full_name || profile.email || 'User';
+                    const avatar = window.authManager.getAvatarForUser ? window.authManager.getAvatarForUser(profile, profile) : '';
+                    const role = profile.role ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1) : 'User';
+                    document.getElementById('settingsUserName').textContent = name;
+                    document.getElementById('settingsUserRole').textContent = role;
+                    if (avatar) document.getElementById('settingsUserAvatar').src = avatar;
+                }
+            }
+        }, 1200);
+    });
+</script>
 
 </html>

@@ -74,13 +74,12 @@ class AuthManager {
       }
 
       console.log("   User found:", user.email);
-      console.log("   Email verified:", user.emailVerified);
+      // Check Firestore profile's email_verified field
+      const isVerified = profile && profile.email_verified;
+      console.log("   Firestore email_verified:", isVerified);
 
-      // Check email verification requirement
-      const requireVerification = window.REQUIRE_EMAIL_VERIFICATION !== false;
-      console.log("   Require verification:", requireVerification);
-
-      if (requireVerification && !user.emailVerified) {
+      const requireVerification = true;
+      if (requireVerification && !isVerified) {
         console.log("⚠️ Email not verified for:", user.email);
         try {
           await fbSignOut();
@@ -91,7 +90,6 @@ class AuthManager {
         return false;
       }
 
-      // Set current user and profile
       this.currentUser = user;
       this.currentProfile = profile || null;
       console.log("✅ Session valid:", user.email);
@@ -117,11 +115,12 @@ class AuthManager {
       }
 
       console.log("   User in handleSignIn:", user.email);
-      console.log("   Email verified:", user.emailVerified);
+      // Check Firestore profile's email_verified field
+      const isVerified = profile && profile.email_verified;
+      console.log("   Firestore email_verified:", isVerified);
 
-      const requireVerification = window.REQUIRE_EMAIL_VERIFICATION !== false;
-
-      if (requireVerification && !user.emailVerified) {
+      const requireVerification = true;
+      if (requireVerification && !isVerified) {
         console.log("⚠️ Sign in blocked - email not verified");
         try {
           await fbSignOut();
@@ -153,6 +152,10 @@ class AuthManager {
       const { data, error } = await fbSignUp(email, password, fullName);
       if (error) throw error;
       console.log("✅ Registration successful");
+      // Inform user to check their email for verification link sent by backend
+      alert(
+        "Registration successful! Please check your email for a verification link before logging in."
+      );
       return { success: true, data };
     } catch (err) {
       console.error("❌ Registration error:", err);
